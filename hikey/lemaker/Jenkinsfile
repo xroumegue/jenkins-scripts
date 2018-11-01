@@ -1,0 +1,241 @@
+pipeline {
+    agent any
+    environment {
+        TC_ARM64='/opt/toolchain/arm64-tc/bin'
+        TC_ARM='/opt/toolchain/arm-tc/bin'
+        CROSS_COMPILE_ta_arm64='aarch64-linux-gnu-'
+        CROSS_COMPILE_ta_arm32='arm-linux-gnueabihf-'
+        AARCH64_TOOLCHAIN='GCC49'
+        EDK2_DIR="${WORKSPACE}/linaro-edk2"
+        UEFI_TOOLS_DIR="${WORKSPACE}/uefi-tools"
+        JENKINS_WORKSPACE="${WORKSPACE}"
+   }
+
+    stages {
+        stage('Git checkout') { // for display purposes
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [
+                            [name: 'refs/heads/hikey-aosp']
+                        ],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'linaro-edk2'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/96boards-hikey/edk2.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'refs/heads/hikey']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'arm-trusted-firmware'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/96boards-hikey/arm-trusted-firmware.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'refs/heads/hikey-aosp']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'linaro-edk2/OpenPlatformPkg'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/96boards-hikey/OpenPlatformPkg.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'refs/heads/hikey-aosp']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'uefi-tools'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/96boards-hikey/uefi-tools.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'refs/heads/hikey-aosp']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'LinaroPkg'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/96boards/LinaroPkg.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'refs/heads/master']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'l-loader'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/96boards-hikey/l-loader.git']
+                        ]
+                    ]
+                )
+                sh 'cp -a LinaroPkg/platforms.config uefi-tools/platforms.config'
+                sh 'rm -Rf out'
+            }
+        }
+        stage('Build EDK2') { // for display purposes
+            steps {
+                withEnv(["PATH+mytool=$TC_ARM64:$TC_ARM:/sbin", "WORKSPACE="]) {
+                    dir("$EDK2_DIR") {
+
+                        sh  '''
+                            ${UEFI_TOOLS_DIR}/uefi-build.sh -b RELEASE -a ../arm-trusted-firmware hikey
+                            '''
+                    }
+                }
+                sh '''
+                    mkdir out
+                    cp -a ${EDK2_DIR}/Build/HiKey/RELEASE_GCC49/FV/*.bin out/
+                    cp -a ${EDK2_DIR}/Build/HiKey/RELEASE_GCC49/AARCH64/AndroidFastbootApp.efi out/
+                    dd if=/dev/zero of=out/nvme.img bs=128 count=1024
+                '''
+            }
+        }
+        stage('Build l-loader') {
+            steps {
+                withEnv(["PATH+mytool=$TC_ARM64:$TC_ARM:/sbin"]) {
+                    dir("l-loader") {
+
+                        sh  '''
+                            ln -s ${WORKSPACE}/out/bl1.bin
+                            ln -s ${WORKSPACE}/out/bl2u.bin
+                            make
+                            cp -a l-loader.bin ptable*.img ${WORKSPACE}/out/
+                            '''
+                    }
+                }
+            }
+        }
+        stage('Save configuration details') {
+            steps {
+                sh '''
+                cat > out/HEADER.textile << EOF
+Build information:
+* build: "${BUILD_URL}":${BUILD_URL}
+* UEFI tools git URL: "$(cd uefi-tools && git config remote.origin.url)":$(cd uefi-tools && git config remote.origin.url)
+* UEFI tools git branch: $(cd uefi-tools && git branch | grep -e '*'  | cut -d' ' -f2)
+* UEFI tools git commit: $(cd uefi-tools && git log -n1 --pretty=format:%H)
+* EDK2 git URL: "${GIT_URL}":${GIT_URL}
+* EDK2 git branch: ${GIT_BRANCH}
+* EDK2 git commit: ${GIT_COMMIT}
+* ATF git URL: "$(cd arm-trusted-firmware && git config remote.origin.url)":$(cd arm-trusted-firmware && git config remote.origin.url)
+* ATF git branch: $(cd arm-trusted-firmware && git branch | grep -e '*'  | cut -d' ' -f2)
+* ATF git commit: $(cd arm-trusted-firmware && git log -n1 --pretty=format:%H)
+* OpenPlatformPkg git URL: "$(cd linaro-edk2/OpenPlatformPkg && git config remote.origin.url)":$(cd linaro-edk2/OpenPlatformPkg && git config remote.origin.url)
+* OpenPlatformPkg git branch: $(cd linaro-edk2/OpenPlatformPkg && git branch | grep -e '*'  | cut -d' ' -f2)
+* OpenPlatformPkg git commit: $(cd linaro-edk2/OpenPlatformPkg && git log -n1 --pretty=format:%H)
+EOF
+'''
+            }
+        }
+        stage('Archive artifacts') {
+            steps {
+                archiveArtifacts artifacts: 'out/*', onlyIfSuccessful: true
+            }
+        }
+    }
+}
