@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+    environment {
+        TC_PATH='/opt/toolchain'
+        TC_VERSION='gcc-arm-8.2-2018.08-x86_64'
+        CROSS_COMPILE='arm-linux-gnueabihf-'
+        ARCH='arm'
+   }
+
+    stages {
+        stage('Git checkout') { // for display purposes
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [
+                            [name: 'refs/heads/zynq-zturn']
+                        ],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'u-boot'
+                            ],
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'git@github.com:xroumegue/u-boot.git']
+                        ]
+                    ]
+                )
+            }
+        }
+        stage('Build') {
+            steps {
+                withEnv(["PATH+mytool=${TC_PATH}/${TC_VERSION}-"+env.CROSS_COMPILE[0..-2]+"/bin"]) {
+                    dir("u-boot") {
+
+                        sh  '''
+                            echo $PATH
+                            make mrproper
+                            make zynq_z_turn_defconfig
+                            make -j$(nproc)
+                            '''
+                    }
+                }
+            }
+        }
+       stage('Archive artifacts') {
+            steps {
+                dir("u-boot") {
+                    archiveArtifacts artifacts: 'spl/boot.bin, spl/u-boot-spl.dtb, u-boot.img, u-boot.bin', onlyIfSuccessful: true
+                }
+            }
+        }
+    }
+}
