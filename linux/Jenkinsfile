@@ -1,0 +1,104 @@
+pipeline {
+    agent any
+    environment {
+        TC_PATH='/opt/toolchain'
+        TC_VERSION='gcc-arm-8.2-2018.08-x86_64'
+    }
+
+    parameters {
+        choice(
+            name: 'ARCH',
+            choices: [ 'arm', 'arm64', 'i386', 'x86_64' ],
+            description: 'Architecture target'
+        )
+        string(
+            name: 'CONFIG',
+            defaultValue: 'multi_v7_defconfig',
+            description: 'Kernel configuration'
+        )
+        string(
+            name: 'CROSS_COMPILE',
+            defaultValue: 'arm-linux-gnueabihf-',
+            description: 'Cross compile prefix'
+        )
+        string(
+            name: 'UIMAGE_LOADADDR',
+            defaultValue: '0x0',
+            description: 'uImage load address (ARM)'
+        )
+        string(
+            name: 'ARTIFACTS',
+            defaultValue: '',
+            description: 'Artifacts list to save'
+        )
+    }
+    stages {
+        stage('Git checkout') {
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [
+                            [name: 'refs/heads/master']
+                        ],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: true
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git']
+                        ]
+                    ]
+                )
+            }
+        }
+        stage('Build ARM') {
+            when {
+                expression { return params.ARCH ==~ /arm(64)*/ }
+            }
+            steps {
+                withEnv(
+                    [
+                        "PATH+mytool=${TC_PATH}/${TC_VERSION}-${CROSS_COMPILE}"[0..-2]+"/bin",
+                        "ARCH=${ARCH}",
+                        "CROSS_COMPILE=${CROSS_COMPILE}",
+                        "UIMAGE_LOADADDR=${UIMAGE_LOADADDR}"
+                    ]) {
+                    sh '''make LOADADDR=${UIMAGE_LOADADDR} mrproper ${CONFIG} all dtbs uImage -j$(nproc)'''
+                }
+            }
+        }
+        stage('Build x86') {
+            when {
+                expression { return params.ARCH ==~ /(i386)|(x86_64)/ }
+            }
+            steps {
+                withEnv(
+                    [
+                        "ARCH=${ARCH}",
+                        "CROSS_COMPILE=",
+                    ]) {
+                    sh '''make mrproper ${ARCH}_defconfig all  -j$(nproc)'''
+                }
+            }
+        }
+        stage('Archive') {
+            when {
+                expression { return params.ARTIFACTS != '' }
+            }
+            steps {
+                archiveArtifacts artifacts: "${params.ARTIFACTS}", onlyIfSuccessful: true
+            }
+        }
+    }
+}
