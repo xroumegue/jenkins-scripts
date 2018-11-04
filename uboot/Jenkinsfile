@@ -1,0 +1,101 @@
+pipeline {
+    agent any
+    environment {
+        TC_PATH='/opt/toolchain'
+        TC_ARM_VERSION='gcc-arm-8.2-2018.08-x86_64'
+    }
+
+    parameters {
+        choice(
+            name: 'ARCH',
+            choices: [ 'arm', 'riscv', 'x86' ],
+            description: 'Architecture target'
+        )
+        string(
+            name: 'CONFIG',
+            defaultValue: 'qemu_arm_defconfig',
+            description: 'Uboot configuration'
+        )
+        string(
+            name: 'CROSS_COMPILE',
+            defaultValue: 'arm-linux-gnueabihf-',
+            description: 'Cross compile prefix'
+        )
+        string(
+            name: 'ARTIFACTS',
+            defaultValue: '',
+            description: 'Artifacts list to save'
+        )
+    }
+    stages {
+        stage('Git checkout') {
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [
+                            [name: 'refs/remotes/upstream/master']
+                        ],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'src'
+                            ],
+                            [
+                                $class: 'CheckoutOption',
+                                timeout: 30,
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: true,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [name: 'upstream', url: 'git://git.denx.de/u-boot.git'],
+                            [name: 'xroumegue', credentialsId: '35cd345b-ee53-4dcd-bea0-03f860c1285b', url: 'git@github.com:xroumegue/u-boot.git']
+                        ]
+                    ]
+                )
+            }
+        }
+        stage('Build') {
+            steps {
+                script {
+                    def tc_arch_path = ''
+                    if (params.ARCH == "arm") {
+                        tc_arch_path="${TC_PATH}/${TC_ARM_VERSION}-${CROSS_COMPILE}"[0..-2]+"/bin"
+                    }
+                    withEnv(
+                     [
+                            "PATH+mytool="+tc_arch_path,
+                            "ARCH=${ARCH}",
+                            "CROSS_COMPILE=${CROSS_COMPILE}",
+                        ]) {
+                        dir('src') {
+                            sh '''make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${CONFIG} all -j$(nproc)'''
+                        }
+                    }
+                }
+            }
+        }
+        stage('Archive') {
+            when {
+                expression { return params.ARTIFACTS != '' }
+            }
+            steps {
+                dir('src') {
+                    archiveArtifacts artifacts: "${params.ARTIFACTS}", onlyIfSuccessful: true
+                }
+            }
+        }
+    }
+}
