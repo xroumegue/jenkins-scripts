@@ -39,7 +39,7 @@ pipeline {
                     [
                         $class: 'GitSCM',
                         branches: [
-                            [name: 'refs/heads/upstream/master']
+                            [name: 'refs/heads/master']
                         ],
                         doGenerateSubmoduleConfigurations: false,
                         extensions: [
