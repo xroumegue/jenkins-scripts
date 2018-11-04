@@ -59,7 +59,8 @@ pipeline {
                                 depth: 0,
                                 noTags: false,
                                 reference: '',
-                                shallow: true
+                                shallow: true,
+                                timeout: 45,
                             ]
                         ],
                         submoduleCfg: [],
