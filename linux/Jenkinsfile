@@ -46,7 +46,10 @@ pipeline {
                             [
                                 $class: 'CleanCheckout'
                             ],
-
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'src'
+                            ],
                             [
                                 $class: 'CheckoutOption',
                                 timeout: 30,
@@ -80,7 +83,9 @@ pipeline {
                         "CROSS_COMPILE=${CROSS_COMPILE}",
                         "UIMAGE_LOADADDR=${UIMAGE_LOADADDR}"
                     ]) {
-                    sh '''make LOADADDR=${UIMAGE_LOADADDR} mrproper ${CONFIG} all dtbs uImage -j$(nproc)'''
+                    dir('src') {
+                        sh '''make LOADADDR=${UIMAGE_LOADADDR} mrproper ${CONFIG} all dtbs uImage -j$(nproc)'''
+                    }
                 }
             }
         }
@@ -94,7 +99,9 @@ pipeline {
                         "ARCH=${ARCH}",
                         "CROSS_COMPILE=",
                     ]) {
-                    sh '''make mrproper ${ARCH}_defconfig all  -j$(nproc)'''
+                    dir('src') {
+                        sh '''make mrproper ${ARCH}_defconfig all  -j$(nproc)'''
+                    }
                 }
             }
         }
@@ -103,7 +110,9 @@ pipeline {
                 expression { return params.ARTIFACTS != '' }
             }
             steps {
-                archiveArtifacts artifacts: "${params.ARTIFACTS}", onlyIfSuccessful: true
+                dir('src') {
+                    archiveArtifacts artifacts: "${params.ARTIFACTS}", onlyIfSuccessful: true
+                }
             }
         }
     }
