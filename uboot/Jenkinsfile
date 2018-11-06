@@ -26,6 +26,11 @@ pipeline {
             defaultValue: '',
             description: 'Artifacts list to save'
         )
+        string(
+            name: 'BRANCH',
+            defaultValue: 'refs/remotes/upstream/master',
+            description: 'Branch to track'
+        )
     }
     stages {
         stage('Git checkout') {
@@ -34,7 +39,7 @@ pipeline {
                     [
                         $class: 'GitSCM',
                         branches: [
-                            [name: 'refs/remotes/upstream/master']
+                            [name: params.BRANCH]
                         ],
                         doGenerateSubmoduleConfigurations: false,
                         extensions: [
