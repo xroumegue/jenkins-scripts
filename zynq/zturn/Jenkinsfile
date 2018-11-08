@@ -1,0 +1,32 @@
+pipeline {
+    agent any
+    triggers {
+        cron('H */4 * * *')
+    }
+    stages {
+        stage('uboot') {
+            steps {
+                build job: 'uboot', parameters : [
+                    string(name: 'ARCH', value:'arm'),
+                    string(name: 'CROSS_COMPILE', value:'arm-linux-gnueabihf-'),
+                    string(name:'CONFIG', value: 'zynq_z_turn_defconfig'),
+                    string(name:'BRANCH', value:'refs/remotes/upstream/master'),
+                    string(name:'BRANCH_TO_REBASE', value:'refs/remotes/xroumegue/zynq-zturn'),
+                    string(name:'ARTIFACTS', value:'spl/boot.bin, spl/u-boot-spl.dtb, u-boot.img, u-boot.bin')
+                ]
+            }
+        }
+        stage('linux') {
+            steps {
+                build job: 'linux', parameters : [
+                    string(name: 'ARCH', value:'arm'),
+                    string(name: 'CROSS_COMPILE', value:'arm-linux-gnueabihf-'),
+                    string(name:'CONFIG', value: 'multi_v7_defconfig'),
+                    string(name:'UIMAGE_LOADADDR', value:'0x8000'),
+                    string(name:'BRANCH', value:'refs/remotes/upstream/master'),
+                    string(name:'ARTIFACTS', value:'arch/arm/boot/dts/zynq-zturn.dtb, arch/arm/boot/zImage')
+                ]
+            }
+        }
+    }
+}
