@@ -1,5 +1,18 @@
 pipeline {
     agent any
+
+    options {
+            buildDiscarder(
+                logRotator(
+                    artifactDaysToKeepStr: '7',
+                    artifactNumToKeepStr: '30',
+                    daysToKeepStr: '30',
+                    numToKeepStr: '100'
+                )
+            )
+            disableConcurrentBuilds()
+    }
+
     environment {
         TC_PATH='/opt/toolchain'
         TC_VERSION='gcc-arm-8.2-2018.08-x86_64'
