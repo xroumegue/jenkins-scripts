@@ -1,6 +1,19 @@
 pipeline {
     agent any
 
+    environment {
+        ARCH='arm'
+        CROSS_COMPILE='arm-linux-gnueabihf-'
+        UBOOT_CONFIG='zynq_z_turn_defconfig'
+        UBOOT_BRANCH='refs/remotes/upstream/master'
+        UBOOT_BRANCH_TO_REBASE='refs/remotes/xroumegue/zynq-zturn'
+        UBOOT_ARTIFACTS='spl/boot.bin, spl/u-boot-spl.dtb, u-boot.img, u-boot.bin'
+        LINUX_CONFIG='multi_v7_defconfig'
+        LINUX_UIMAGE_LOADADDR='0x8000'
+        LINUX_BRANCH='refs/remotes/upstream/master'
+        LINUX_ARTIFACTS='arch/arm/boot/dts/zynq-zturn.dtb, arch/arm/boot/zImage'
+    }
+
     options {
             buildDiscarder(
                 logRotator(
@@ -21,25 +34,31 @@ pipeline {
         stage('uboot') {
             steps {
                 build job: 'uboot', parameters : [
-                    string(name: 'ARCH', value:'arm'),
-                    string(name: 'CROSS_COMPILE', value:'arm-linux-gnueabihf-'),
-                    string(name:'CONFIG', value: 'zynq_z_turn_defconfig'),
-                    string(name:'BRANCH', value:'refs/remotes/upstream/master'),
-                    string(name:'BRANCH_TO_REBASE', value:'refs/remotes/xroumegue/zynq-zturn'),
-                    string(name:'ARTIFACTS', value:'spl/boot.bin, spl/u-boot-spl.dtb, u-boot.img, u-boot.bin')
+                    string(name: 'ARCH', value: env.ARCH),
+                    string(name: 'CROSS_COMPILE', value: env.CROSS_COMPILE),
+                    string(name:'CONFIG', value: env.UBOOT_CONFIG),
+                    string(name:'BRANCH', value: env.UBOOT_BRANCH),
+                    string(name:'BRANCH_TO_REBASE', value: env.UBOOT_BRANCH_TO_REBASE),
+                    string(name:'ARTIFACTS', value: env.UBOOT_ARTIFACTS)
                 ]
             }
         }
         stage('linux') {
             steps {
-                build job: 'linux', parameters : [
-                    string(name: 'ARCH', value:'arm'),
-                    string(name: 'CROSS_COMPILE', value:'arm-linux-gnueabihf-'),
-                    string(name:'CONFIG', value: 'multi_v7_defconfig'),
-                    string(name:'UIMAGE_LOADADDR', value:'0x8000'),
-                    string(name:'BRANCH', value:'refs/remotes/upstream/master'),
-                    string(name:'ARTIFACTS', value:'arch/arm/boot/dts/zynq-zturn.dtb, arch/arm/boot/zImage')
-                ]
+                script {
+                def lnx_id = build(
+                        job: 'linux',
+                        parameters : [
+                            string(name: 'ARCH', value: env.ARCH),
+                            string(name: 'CROSS_COMPILE', value: env.CROSS_COMPILE),
+                            string(name:'CONFIG', value: env.LINUX_CONFIG),
+                            string(name:'UIMAGE_LOADADDR', value: env.LINUX_UIMAGE_LOADADDR),
+                            string(name:'BRANCH', value: env.LINUX_BRANCH),
+                            string(name:'ARTIFACTS', value: env.LINUX_ARTIFACTS)
+                        ]
+                    )
+                echo lnx_id.getNumber()
+                }
             }
         }
     }
