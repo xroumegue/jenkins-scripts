@@ -57,7 +57,7 @@ pipeline {
                             string(name:'ARTIFACTS', value: env.LINUX_ARTIFACTS)
                         ]
                     )
-                echo lnx_id.getNumber()
+                echo lnx_id.getNumber().toString()
                 }
             }
         }
