@@ -11,7 +11,7 @@ pipeline {
         LINUX_CONFIG='multi_v7_defconfig'
         LINUX_UIMAGE_LOADADDR='0x8000'
         LINUX_BRANCH='refs/remotes/upstream/master'
-        LINUX_ARTIFACTS='arch/arm/boot/dts/zynq-zturn.dtb, arch/arm/boot/zImage'
+        LINUX_ARTIFACTS='arch/arm/boot/dts/zynq-zturn.dtb, arch/arm/boot/zImage, arch/arm/boot/uImage'
     }
 
     options {
