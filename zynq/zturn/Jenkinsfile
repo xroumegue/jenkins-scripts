@@ -12,6 +12,10 @@ pipeline {
         LINUX_UIMAGE_LOADADDR='0x8000'
         LINUX_BRANCH='refs/remotes/upstream/master'
         LINUX_ARTIFACTS='arch/arm/boot/dts/zynq-zturn.dtb, arch/arm/boot/zImage, arch/arm/boot/uImage'
+        BUILDROOT_ARTIFACTS='output/images/rootfs.cpio.uboot'
+        BUILDROOT_CONFIG='zynq_zturn_ramdisk_defconfig'
+        BUILDROOT_BRANCH='refs/remotes/upstream/master'
+        BUILDROOT_BRANCH_TO_REBASE='refs/remotes/xroumegue/zynq-zturn'
     }
 
     options {
@@ -59,6 +63,16 @@ pipeline {
                     )
                 echo lnx_id.getNumber().toString()
                 }
+            }
+        }
+        stage('buildroot') {
+            steps {
+                build job: 'buildroot', parameters : [
+                    string(name: 'CONFIG', value: env.BUILDROOT_CONFIG),
+                    string(name: 'BRANCH', value: env.BUILDROOT_BRANCH),
+                    string(name: 'BRANCH_TO_REBASE', value: env.BUILDROOT_BRANCH_TO_REBASE),
+                    string(name: 'ARTIFACTS', value: env.BUILDROOT_ARTIFACTS)
+                ]
             }
         }
     }
