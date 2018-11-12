@@ -44,6 +44,11 @@ pipeline {
             defaultValue: 'refs/remotes/upstream/master',
             description: 'Branch to track'
         )
+        string(
+            name: 'BRANCH_TO_REBASE',
+            defaultValue: '',
+            description: 'Branch to rebase'
+        )
     }
     stages {
         stage('Git checkout') {
@@ -72,7 +77,7 @@ pipeline {
                                 depth: 0,
                                 noTags: false,
                                 reference: '',
-                                shallow: true,
+                                shallow: false,
                                 timeout: 45,
                             ]
                         ],
@@ -84,6 +89,21 @@ pipeline {
                     ]
                 )
             }
+        }
+        stage('Git Rebase') {
+            when {
+                expression {params.BRANCH_TO_REBASE != ''}
+            }
+            steps {
+                dir('src') {
+                    sh '''
+                        git branch old $BRANCH_TO_REBASE
+                        git checkout -B new $BRANCH_TO_REBASE
+                        git rebase $BRANCH
+                    '''
+                }
+            }
+
         }
         stage('Build') {
             steps {
@@ -112,6 +132,31 @@ pipeline {
             steps {
                 dir('src') {
                     archiveArtifacts artifacts: "${params.ARTIFACTS}", onlyIfSuccessful: true
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                if (params.BRANCH_TO_REBASE != '') {
+                    def branch = params.BRANCH_TO_REBASE.split('/')[3]
+                    def remote = params.BRANCH_TO_REBASE.split('/')[2]
+                    withEnv(["BRANCH="+branch, "REMOTE="+remote]) {
+                        dir('src') {
+                            sh '''git push -f ${REMOTE} new:${BRANCH}'''
+                            sh '''git push -f ${REMOTE} old:${BRANCH}-old'''
+                        }
+                    }
+                }
+            }
+        }
+        cleanup {
+            script {
+                if (params.BRANCH_TO_REBASE != '') {
+                    dir('src') {
+                        sh ''' git branch -D old '''
+                    }
                 }
             }
         }
