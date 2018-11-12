@@ -1,0 +1,142 @@
+pipeline {
+    agent any
+
+    options {
+            buildDiscarder(
+                logRotator(
+                    artifactDaysToKeepStr: '7',
+                    artifactNumToKeepStr: '30',
+                    daysToKeepStr: '30',
+                    numToKeepStr: '100'
+                )
+            )
+            disableConcurrentBuilds()
+    }
+
+    environment {
+        TC_PATH='/opt/toolchain'
+        TC_ARM_VERSION='gcc-arm-8.2-2018.08-x86_64'
+    }
+
+    parameters {
+        string(
+            name: 'CONFIG',
+            defaultValue: 'qemu_aarch64_virt_defconfig',
+            description: 'Uboot configuration'
+        )
+        string(
+            name: 'ARTIFACTS',
+            defaultValue: '',
+            description: 'Artifacts list to save'
+        )
+        string(
+            name: 'BRANCH',
+            defaultValue: 'refs/remotes/upstream/master',
+            description: 'Branch to track'
+        )
+        string(
+            name: 'BRANCH_TO_REBASE',
+            defaultValue: '',
+            description: 'Branch to rebase'
+        )
+    }
+    stages {
+        stage('Git checkout') {
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [
+                            [name: params.BRANCH]
+                        ],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'src'
+                            ],
+                            [
+                                $class: 'CheckoutOption',
+                                timeout: 30,
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [name: 'upstream', url: 'git://git.busybox.net/buildroot'],
+                            [name: 'xroumegue', credentialsId: '35cd345b-ee53-4dcd-bea0-03f860c1285b', url: 'git@github.com:xroumegue/buildroot.git']
+                        ]
+                    ]
+                )
+            }
+        }
+        stage('Git Rebase') {
+            when {
+                expression {params.BRANCH_TO_REBASE != ''}
+            }
+            steps {
+                dir('src') {
+                    sh '''
+                        git branch old $BRANCH_TO_REBASE
+                        git checkout -B new $BRANCH_TO_REBASE
+                        git rebase $BRANCH
+                    '''
+                }
+            }
+
+        }
+        stage('Build') {
+            steps {
+                dir('src') {
+                    sh '''make ${CONFIG}'''
+                    sh '''make '''
+                }
+            }
+        }
+        stage('Archive') {
+            when {
+                expression { return params.ARTIFACTS != '' }
+            }
+            steps {
+                dir('src') {
+                    archiveArtifacts artifacts: "${params.ARTIFACTS}", onlyIfSuccessful: true
+                }
+            }
+        }
+    }
+    post {
+        success {
+            script {
+                if (params.BRANCH_TO_REBASE != '') {
+                    def branch = params.BRANCH_TO_REBASE.split('/')[3]
+                    def remote = params.BRANCH_TO_REBASE.split('/')[2]
+                    withEnv(["BRANCH="+branch, "REMOTE="+remote]) {
+                        dir('src') {
+                            sh '''git push -f ${REMOTE} new:${BRANCH}'''
+                            sh '''git push -f ${REMOTE} old:${BRANCH}-old'''
+                        }
+                    }
+                }
+            }
+        }
+        cleanup {
+            script {
+                if (params.BRANCH_TO_REBASE != '') {
+                    dir('src') {
+                        sh ''' git branch -D old '''
+                    }
+                }
+            }
+        }
+    }
+}
