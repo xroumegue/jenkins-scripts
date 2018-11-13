@@ -98,6 +98,7 @@ pipeline {
         stage('Build') {
             steps {
                 dir('src') {
+                    sh '''ln -s ~/buildroot-dl dl'''
                     sh '''make ${CONFIG}'''
                     sh '''make '''
                 }
