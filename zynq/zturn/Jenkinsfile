@@ -1,3 +1,7 @@
+def lnx_build
+def uboot_build
+def buildroot_build
+
 pipeline {
     agent any
 
@@ -37,20 +41,25 @@ pipeline {
     stages {
         stage('uboot') {
             steps {
-                build job: 'uboot', parameters : [
-                    string(name: 'ARCH', value: env.ARCH),
-                    string(name: 'CROSS_COMPILE', value: env.CROSS_COMPILE),
-                    string(name:'CONFIG', value: env.UBOOT_CONFIG),
-                    string(name:'BRANCH', value: env.UBOOT_BRANCH),
-                    string(name:'BRANCH_TO_REBASE', value: env.UBOOT_BRANCH_TO_REBASE),
-                    string(name:'ARTIFACTS', value: env.UBOOT_ARTIFACTS)
-                ]
+                script {
+                    uboot_build = build(
+                        job: 'uboot',
+                        parameters : [
+                            string(name: 'ARCH', value: env.ARCH),
+                            string(name: 'CROSS_COMPILE', value: env.CROSS_COMPILE),
+                            string(name:'CONFIG', value: env.UBOOT_CONFIG),
+                            string(name:'BRANCH', value: env.UBOOT_BRANCH),
+                            string(name:'BRANCH_TO_REBASE', value: env.UBOOT_BRANCH_TO_REBASE),
+                            string(name:'ARTIFACTS', value: env.UBOOT_ARTIFACTS)
+                        ]
+                    )
+                }
             }
         }
         stage('linux') {
             steps {
                 script {
-                def lnx_id = build(
+                    lnx_build = build(
                         job: 'linux',
                         parameters : [
                             string(name: 'ARCH', value: env.ARCH),
@@ -61,19 +70,54 @@ pipeline {
                             string(name:'ARTIFACTS', value: env.LINUX_ARTIFACTS)
                         ]
                     )
-                echo lnx_id.getNumber().toString()
                 }
             }
         }
         stage('buildroot') {
             steps {
-                build job: 'buildroot', parameters : [
-                    string(name: 'CONFIG', value: env.BUILDROOT_CONFIG),
-                    string(name: 'BRANCH', value: env.BUILDROOT_BRANCH),
-                    string(name: 'BRANCH_TO_REBASE', value: env.BUILDROOT_BRANCH_TO_REBASE),
-                    string(name: 'ARTIFACTS', value: env.BUILDROOT_ARTIFACTS)
-                ]
+                script {
+                    buildroot_build = build(
+                        job: 'buildroot',
+                        parameters : [
+                            string(name: 'CONFIG', value: env.BUILDROOT_CONFIG),
+                            string(name: 'BRANCH', value: env.BUILDROOT_BRANCH),
+                            string(name: 'BRANCH_TO_REBASE', value: env.BUILDROOT_BRANCH_TO_REBASE),
+                            string(name: 'ARTIFACTS', value: env.BUILDROOT_ARTIFACTS)
+                        ]
+                    )
+                }
             }
+        }
+        stage('boot-tftp') {
+            steps {
+                sh ''' mkdir output_dir'''
+                copyArtifacts(
+                    fingerprintArtifacts: true,
+                    flatten: true,
+                    projectName: 'linux',
+                    selector: specific(lnx_build.getNumber().toString()),
+                    target: 'output_dir'
+                )
+                copyArtifacts(
+                    fingerprintArtifacts: true,
+                    flatten: true,
+                    projectName: 'uboot',
+                    selector: specific(uboot_build.getNumber().toString()),
+                    target: 'output_dir'
+                )
+                copyArtifacts(
+                    fingerprintArtifacts: true,
+                    flatten: true,
+                    projectName: 'buildroot',
+                    selector: specific(buildroot_build.getNumber().toString()),
+                    target: 'output_dir'
+                )
+            }
+        }
+    }
+    post {
+        always{
+            sh '''rm -Rf output_dir'''
         }
     }
 }
