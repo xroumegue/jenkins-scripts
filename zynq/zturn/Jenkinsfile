@@ -90,34 +90,28 @@ pipeline {
         }
         stage('boot-tftp') {
             steps {
-                sh ''' mkdir output_dir'''
-                copyArtifacts(
-                    fingerprintArtifacts: true,
-                    flatten: true,
-                    projectName: 'linux',
-                    selector: specific(lnx_build.getNumber().toString()),
-                    target: 'output_dir'
-                )
-                copyArtifacts(
-                    fingerprintArtifacts: true,
-                    flatten: true,
-                    projectName: 'uboot',
-                    selector: specific(uboot_build.getNumber().toString()),
-                    target: 'output_dir'
-                )
-                copyArtifacts(
-                    fingerprintArtifacts: true,
-                    flatten: true,
-                    projectName: 'buildroot',
-                    selector: specific(buildroot_build.getNumber().toString()),
-                    target: 'output_dir'
+                build(
+                    job: 'boot-tftp',
+                    parameters : [
+                        string(
+                            name: 'PLATFORM',
+                            value: 'zturn'
+                        ),
+                        string(
+                            name: 'LINUX_JOB_ID',
+                            value: lnx_build.getNumber().toString()
+                        ),
+                        string(
+                            name: 'BUILDROOT_JOB_ID',
+                            value: buildroot_build.getNumber().toString()
+                        ),
+                        string(
+                            name: 'UBOOT_JOB_ID',
+                            value: uboot_build.getNumber().toString()
+                        ),
+                    ]
                 )
             }
-        }
-    }
-    post {
-        always{
-            sh '''rm -Rf output_dir'''
         }
     }
 }
