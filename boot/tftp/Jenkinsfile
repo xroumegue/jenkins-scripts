@@ -1,0 +1,114 @@
+pipeline {
+    agent any
+
+    options {
+            buildDiscarder(
+                logRotator(
+                    artifactDaysToKeepStr: '7',
+                    artifactNumToKeepStr: '30',
+                    daysToKeepStr: '30',
+                    numToKeepStr: '100'
+                )
+            )
+            disableConcurrentBuilds()
+    }
+
+    environment {
+        TC_PATH='/opt/toolchain'
+        TC_VERSION='gcc-arm-8.2-2018.08-x86_64'
+    }
+
+    parameters {
+        choice(
+            name: 'PLATFORM',
+            choices: [ 'zturn', 'jetson', 'hikey' ],
+            description: 'Platform to boot'
+        )
+        string(
+            name: 'LINUX_JOB_ID',
+            defaultValue: '',
+            description: 'Linux jb id'
+        )
+        string(
+            name: 'UBOOT_JOB_ID',
+            defaultValue: '',
+            description: 'Uboot job id'
+        )
+        string(
+            name: 'BUILDROOT_JOB_ID',
+            defaultValue: '',
+            description: 'buildroot job id'
+        )
+    }
+
+    stages {
+        stage('Git checkout') {
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [
+                            [name: 'refs/remotes/xroumegue/master']
+                        ],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [
+                                $class: 'CleanCheckout'
+                            ],
+                            [
+                                $class: 'CheckoutOption',
+                                timeout: 30,
+                            ],
+                            [
+                                $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [
+                                name: 'xroumegue',
+                                url: 'git@gitlab.com:xroumegue/flashBuddy.git',
+                                credentialsId: '35cd345b-ee53-4dcd-bea0-03f860c1285b'
+                            ]
+                        ]
+                    ]
+                )
+            }
+        }
+        stage('Download artifact') {
+            steps {
+                copyArtifacts(
+                    fingerprintArtifacts: true,
+                    flatten: true,
+                    projectName: 'linux',
+                    selector: specific(params.LINUX_JOB_ID),
+                    target: '_files'
+                )
+                copyArtifacts(
+                    fingerprintArtifacts: true,
+                    flatten: true,
+                    projectName: 'uboot',
+                    selector: specific(params.UBOOT_JOB_ID),
+                    target: '_files'
+                )
+                copyArtifacts(
+                    fingerprintArtifacts: true,
+                    flatten: true,
+                    projectName: 'buildroot',
+                    selector: specific(params.BUILDROOT_JOB_ID),
+                    target: '_files'
+                )
+            }
+        }
+        stage('boot') {
+            steps {
+                sh ''' bin/boot-tftp.sh --platform ${PLATFORM} --rootdir _files'''
+            }
+        }
+    }
+}
