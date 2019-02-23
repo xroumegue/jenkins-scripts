@@ -152,6 +152,14 @@ pipeline {
                 }
             }
         }
+        failure {
+            script {
+                    dir('src') {
+                        sh '''git rebase --abort'''
+                        sh '''git reset --hard'''
+                    }
+            }
+        }
         cleanup {
             script {
                 if (params.BRANCH_TO_REBASE != '') {
