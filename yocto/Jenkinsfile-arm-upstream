@@ -1,0 +1,203 @@
+pipeline {
+    agent any
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('Build-helpers') {
+            steps {
+                checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        doGenerateSubmoduleConfigurations: false,
+                        changelog: true,
+                        poll: true,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'helpers'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/xroumegue/build-helpers.git']
+                        ]
+                    ]
+                )
+            }
+        }
+
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                    [
+                        $class: 'GitSCM',
+                        changelog: true,
+                        poll: true,
+                        branches: [[name: 'master']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'poky'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'git://git.yoctoproject.org/poky']
+                        ]
+                    ])
+                    checkout(
+                    [
+                        $class: 'GitSCM',
+                        branches: [[name: 'master']],
+                        changelog: true,
+                        poll: true,
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'meta-arm'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'git://git.yoctoproject.org/meta-arm']
+                        ]
+                    ])
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: 'master']],
+                        changelog: true,
+                        poll: true,
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'meta-openembedded'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'git://git.openembedded.org/meta-openembedded']
+                        ]
+                    ])
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        changelog: true,
+                        poll: true,
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'meta-staging'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/xroumegue/meta-staging']
+                        ]
+                    ])
+                }
+            }
+        }
+
+        stage("changes") {
+            steps {
+                dir("helpers") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/poky") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/meta-arm") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/meta-openembedded") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/meta-staging") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                dir("work") {
+                    sh '''cp ${WORKSPACE}/helpers/etc/env-default.sh.sample ${WORKSPACE}/helpers/etc/env-default.sh'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh setup'''
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh build'''
+                }
+            }
+        }
+
+        stage('sdk') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh sdk'''
+                }
+            }
+        }
+    }
+}
