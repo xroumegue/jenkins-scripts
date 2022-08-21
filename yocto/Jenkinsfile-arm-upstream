@@ -7,14 +7,21 @@ pipeline {
         stage('Build-helpers') {
             steps {
                 checkout(
-                    [
+                    changelog: true,
+                    poll: true,
+                    scm: [
                         $class: 'GitSCM',
                         branches: [[name: 'main']],
                         doGenerateSubmoduleConfigurations: false,
-                        changelog: true,
-                        poll: true,
                         extensions: [
                             [ $class: 'CleanCheckout'],
+                            [ $class: 'SubmoduleOption',
+                                disableSubmodules: false,
+                                parentCredentials: false,
+                                recursiveSubmodules: true,
+                                reference: '',
+                                trackingSubmodules: false
+                            ],
                             [ $class: 'RelativeTargetDirectory',
                                 relativeTargetDir: 'helpers'
                             ],
@@ -42,115 +49,121 @@ pipeline {
                 steps {
                     dir("work") {
                     checkout(
-                    [
-                        $class: 'GitSCM',
                         changelog: true,
                         poll: true,
-                        branches: [[name: 'master']],
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [
-                            [ $class: 'CleanCheckout'],
-                            [ $class: 'RelativeTargetDirectory',
-                                relativeTargetDir: 'poky'
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'poky'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
                             ],
-                            [ $class: 'CheckoutOption',
-                                timeout: 30
-                            ],
-                            [ $class: 'CloneOption',
-                                depth: 0,
-                                noTags: false,
-                                reference: '',
-                                shallow: false,
-                                timeout: 45,
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://git.yoctoproject.org/poky']
                             ]
-                        ],
-                        submoduleCfg: [],
-                        userRemoteConfigs: [
-                            [url: 'git://git.yoctoproject.org/poky']
                         ]
-                    ])
+                    )
                     checkout(
-                    [
-                        $class: 'GitSCM',
-                        branches: [[name: 'master']],
                         changelog: true,
                         poll: true,
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [
-                            [ $class: 'CleanCheckout'],
-                            [ $class: 'RelativeTargetDirectory',
-                                relativeTargetDir: 'meta-arm'
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'meta-arm'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
                             ],
-                            [ $class: 'CheckoutOption',
-                                timeout: 30
-                            ],
-                            [ $class: 'CloneOption',
-                                depth: 0,
-                                noTags: false,
-                                reference: '',
-                                shallow: false,
-                                timeout: 45,
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://git.yoctoproject.org/meta-arm']
                             ]
-                        ],
-                        submoduleCfg: [],
-                        userRemoteConfigs: [
-                            [url: 'git://git.yoctoproject.org/meta-arm']
                         ]
-                    ])
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: 'master']],
+                    )
+                    checkout(
                         changelog: true,
                         poll: true,
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [
-                            [ $class: 'CleanCheckout'],
-                            [ $class: 'RelativeTargetDirectory',
-                                relativeTargetDir: 'meta-openembedded'
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'meta-openembedded'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
                             ],
-                            [ $class: 'CheckoutOption',
-                                timeout: 30
-                            ],
-                            [ $class: 'CloneOption',
-                                depth: 0,
-                                noTags: false,
-                                reference: '',
-                                shallow: false,
-                                timeout: 45,
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://git.openembedded.org/meta-openembedded']
                             ]
-                        ],
-                        submoduleCfg: [],
-                        userRemoteConfigs: [
-                            [url: 'git://git.openembedded.org/meta-openembedded']
                         ]
-                    ])
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: 'main']],
+                    )
+                    checkout(
                         changelog: true,
                         poll: true,
-                        doGenerateSubmoduleConfigurations: false,
-                        extensions: [
-                            [ $class: 'CleanCheckout'],
-                            [ $class: 'RelativeTargetDirectory',
-                                relativeTargetDir: 'meta-staging'
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'main']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'meta-staging'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
                             ],
-                            [ $class: 'CheckoutOption',
-                                timeout: 30
-                            ],
-                            [ $class: 'CloneOption',
-                                depth: 0,
-                                noTags: false,
-                                reference: '',
-                                shallow: false,
-                                timeout: 45,
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/xroumegue/meta-staging']
                             ]
-                        ],
-                        submoduleCfg: [],
-                        userRemoteConfigs: [
-                            [url: 'https://github.com/xroumegue/meta-staging']
                         ]
-                    ])
+                    )
                 }
             }
         }
