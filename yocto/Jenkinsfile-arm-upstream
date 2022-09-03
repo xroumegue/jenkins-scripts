@@ -58,6 +58,42 @@ pipeline {
                         ]
                     ]
                 )
+                checkout(
+                    changelog: true,
+                    poll: true,
+                    scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'staging']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'SubmoduleOption',
+                                disableSubmodules: false,
+                                parentCredentials: false,
+                                recursiveSubmodules: true,
+                                reference: '',
+                                trackingSubmodules: false
+                            ],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'helpers-config'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'git@github.com:xroumegue/build-helpers-config.git']
+                        ]
+                    ]
+                )
             }
         }
 
@@ -207,7 +243,8 @@ pipeline {
         stage('Setup') {
             steps {
                 dir("work") {
-                    sh '''cp ${WORKSPACE}/helpers/etc/env-default.sh.sample ${WORKSPACE}/helpers/etc/env-default.sh'''
+                    sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
+                    sh '''cp ${WORKSPACE}/helpers/etc/env-default-4.1.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
                     sh '''sed -i -e "s#sstatedir_default=#sstatedir_default=$SSTATE_DIR#"  ${WORKSPACE}/helpers/etc/env-default.sh'''
                     sh '''sed -i -e "s#downloaddir_default=#downloaddir_default=$DL_DIR#"  ${WORKSPACE}/helpers/etc/env-default.sh'''
                     sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force setup'''
