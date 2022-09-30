@@ -1,0 +1,6 @@
+https_proxy = http://emea.nics.nxp.com:8080
+http_proxy =  http://emea.nics.nxp.com:8080
+ftp_proxy = http://emea.nics.nxp.com:8080
+
+no_proxy = nxp.com;w.nxp.com;freescale.net;127.0.0.1
+use_proxy = on

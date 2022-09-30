@@ -1,0 +1,68 @@
+# This Dockerfile generates the docker image for building a Yocto
+# To build it (YYYYMMDD.HHMM is the current date and time in UTC):
+#   sudo docker build -t yocto:$(TZ=UTC date +%Y%m%d.%H%M) .
+
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND noninteractive
+ARG SSH_KEY
+
+RUN apt-get -y update && \
+    apt-get -y upgrade
+
+RUN apt-get -y update && \
+        apt-get -y install \
+        locales-all apt-utils xz-utils cpio attr bc lz4 zstd \
+        ccache emacs-nox gcc-doc gdb-doc glibc-doc libncurses5-dev lzop \
+        tig vim-nox sudo \
+        gawk wget git-core diffstat unzip texinfo gcc-multilib \
+        build-essential chrpath socat libsdl1.2-dev \
+        libsdl1.2-dev xterm sed cvs subversion coreutils texi2html \
+        docbook-utils python-pysqlite2 help2man make gcc g++ desktop-file-utils \
+        libgl1-mesa-dev libglu1-mesa-dev mercurial autoconf automake groff curl lzop asciidoc rsync \
+        gnupg \
+        u-boot-tools tree screen indent && \
+    update-alternatives --set editor /usr/bin/vim.nox
+
+RUN useradd \
+        -m \
+        -s /bin/bash build-user \
+        -c "Build User" \
+        -G adm,sudo,dip,plugdev && \
+    chown -R build-user:build-user /home/build-user
+
+COPY build-yocto.sh /home/build-user/
+
+RUN \
+    chown build-user:build-user /home/build-user/build-yocto.sh \
+    && chmod 0755 /home/build-user/build-yocto.sh
+
+COPY ssh_known_hosts /home/build-user/.ssh/known_hosts
+COPY ssh_config /home/build-user/.ssh/config
+COPY no_passwd /etc/sudoers.d/
+RUN echo "${SSH_KEY}" > /home/build-user/.ssh/id_rsa
+
+RUN chown -R build-user:build-user /home/build-user/.ssh/ && \
+    chmod 0700 /home/build-user/.ssh/ && \
+    chmod 0600 /home/build-user/.ssh/id_rsa && \
+    chmod 0600 /home/build-user/.ssh/known_hosts
+
+
+RUN runuser -l build-user -c "mkdir -p ~/bin && curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo && chmod a+x ~/bin/repo"
+
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+COPY --chown=build-user:build-user proxy-env-nxp wgetrc-nxp source-file-in-bashrc.d.sh /home/build-user/
+
+RUN cd /home/build-user && \
+    cat source-file-in-bashrc.d.sh >> .bashrc && \
+    rm source-file-in-bashrc.d.sh && \
+    mv wgetrc-nxp  .wgetrc && \
+    mkdir .bashrc.d && \
+    chown build-user:build-user .bashrc.d/ && \
+    mv proxy-env-nxp .bashrc.d/proxy-env
+
+USER build-user
+WORKDIR /home/build-user
+ENV HOME /home/build-user
+ENV PATH /home/build-user/bin:$PATH
+ENV LC_ALL en_US.UTF-8

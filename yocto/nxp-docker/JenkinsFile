@@ -1,0 +1,27 @@
+pipeline {
+    environment {
+        SSH_KEY='/var/lib/jenkins/.ssh/nxp-automation'
+    }
+    agent {
+        dockerfile {
+            filename 'Dockerfile-nxp-yocto-20.04'
+            dir 'yocto/nxp-docker'
+            additionalBuildArgs '--build-arg SSH_KEY=\"$(cat /var/lib/jenkins/.ssh/nxp-automation)\"'
+        }
+    }
+
+    options {
+        disableConcurrentBuilds()
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('fetch') {
+            steps {
+                sh 'cat /etc/lsb-release'
+            }
+        }
+    }
+}

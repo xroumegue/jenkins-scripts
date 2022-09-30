@@ -1,0 +1,10 @@
+
+export http_proxy='http://emea.nics.nxp.com:8080'
+export https_proxy='http://emea.nics.nxp.com:8080'
+export ftp_proxy='http://emea.nics.nxp.com:8080'
+
+#export ALL_PROXY='socks://emea.nics.nxp.com:8080/'
+#export all_proxy='socks://emea.nics.nxp.com:8080/'
+
+export no_proxy='nxp.com,freescale.net,sw.nxp.com'
+
