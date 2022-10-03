@@ -67,8 +67,8 @@ done
 eval "$(ssh-agent)"
 docker run  \
      --volume "${BASEDIR}"/volume/yocto:/home/build-user/yocto:rw,z \
-     --volume /srv/nas/vtec/yocto/downloads:/home/build-user/yocto/downloads:rw \
-     --volume /srv/nas/vtec/yocto/sstate-cache:/home/build-user/yocto/sstate-cache:rw \
+     --volume "${BASEDIR}"/volume/yocto/downloads:/home/build-user/yocto/downloads:rw,z \
+     --volume "${BASEDIR}"/volume/yocto/sstate-cache:/home/build-user/yocto/sstate-cache:rw,z \
      --volume "${BASEDIR}"/volume/tmp:/tmp:rw,z \
      --user "${BLD_UID}" \
      --volume "${SSH_AUTH_SOCK}":/ssh-agent:ro,z \
