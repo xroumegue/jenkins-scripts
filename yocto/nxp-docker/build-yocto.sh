@@ -4,9 +4,8 @@ set -ux
 
 REALPATH="$(readlink -e "$0")"
 BASEDIR="$(dirname "${REALPATH}")"
-HELPERSDIR="${BASEDIR}/yocto-helpers"
 
-while getopts "u:d:M:t:m:b:v:S:D:Y:" OPTION; do
+while getopts "u:d:M:t:m:b:S:D:Y:" OPTION; do
     case ${OPTION} in
         u)
             REMOTE=${OPTARG}
@@ -35,9 +34,6 @@ while getopts "u:d:M:t:m:b:v:S:D:Y:" OPTION; do
 	Y)
 	    YOCTO_DIR=${OPTARG}
 	    ;;
-        v)
-            OPTIONS+=("${OPTARG}")
-            ;;
     esac
 done
 
@@ -113,16 +109,5 @@ fi
 if ! grep -Eq '^OE_TERMINAL' "${BB_LOCAL_CONF}" ; then
     echo 'OE_TERMINAL = "screen"' >> "${BB_LOCAL_CONF}"
 fi
-
-for name in "${OPTIONS[@]}"
-do
-    option_file=${HELPERSDIR}/option-${name}.sh
-    if [ -f "${option_file}" ];
-    then
-        . "${option_file}"
-    else
-        echo "Yocto configuration option file ${option_file} does not exist, skipping"
-    fi
-done
 
 bitbake packagegroup-imx-ml && bitbake packagegroup-qt6-imx && bitbake ${TARGET}

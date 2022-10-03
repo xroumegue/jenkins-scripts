@@ -1,13 +1,8 @@
 pipeline {
+    agent any
+
     environment {
         SSH_KEY='/var/lib/jenkins/.ssh/nxp-automation'
-    }
-    agent {
-        dockerfile {
-            filename 'Dockerfile-nxp-yocto-20.04'
-            dir 'yocto/nxp-docker'
-            additionalBuildArgs '--build-arg SSH_KEY=\"$(cat /var/lib/jenkins/.ssh/nxp-automation)\"'
-        }
     }
 
     options {
@@ -18,9 +13,25 @@ pipeline {
     triggers{ pollSCM('H/15 * * * *') }
 
     stages {
-        stage('fetch') {
+
+        stage('build docker') {
             steps {
-                sh 'cat /etc/lsb-release'
+                sh '''docker build -t nxp-yocto --build-arg SSH_KEY=\"$(cat /var/lib/jenkins/.ssh/nxp-automation)\" yocto/nxp-docker -f Dockerfile-nxp-yocto-20.04'''
+            }
+        }
+
+        stage('create volume') {
+            steps {
+                dir("work") {
+                    sh '''bash -c \' pwd; ls; echo ${WORKSPACE} ;ls ${WORKSPACE} \''''
+                }
+            }
+        }
+
+
+        stage('build yocto') {
+            steps {
+                sh ''' docker run --user $(id -u ) --rm -t nxp-yocto bash -c \'ls;pwd\' '''
             }
         }
     }
