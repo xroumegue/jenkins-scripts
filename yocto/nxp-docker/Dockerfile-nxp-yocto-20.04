@@ -40,11 +40,12 @@ RUN \
 
 COPY ssh_known_hosts /home/build-user/.ssh/known_hosts
 COPY ssh_config /home/build-user/.ssh/config
+COPY gitconfig /home/build-user/.gitconfig
 COPY no_passwd /etc/sudoers.d/
 
 RUN echo "${SSH_KEY}" > /home/build-user/.ssh/id_rsa
 
-RUN chown -R build-user:build-user /home/build-user/.ssh/ && \
+RUN chown -R build-user:build-user /home/build-user/ && \
     chmod 0700 /home/build-user/.ssh/ && \
     chmod 0600 /home/build-user/.ssh/id_rsa && \
     chmod 0600 /home/build-user/.ssh/known_hosts

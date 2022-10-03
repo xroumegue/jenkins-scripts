@@ -1,0 +1,13 @@
+[user]
+    name = "Jenkins CI"
+    email = xavier.roumegue@nxp.com
+
+[https]
+    proxy = http://emea.nics.nxp.com:8080/
+
+[http]
+    proxy = http://emea.nics.nxp.com:8080/
+
+[color]
+    ui = true
+
