@@ -28,10 +28,11 @@ pipeline {
             }
         }
 
-
         stage('build yocto') {
             steps {
-                sh ''' docker run --user $(id -u ) --rm -t nxp-yocto bash -c \'ls;pwd\' '''
+                dir("work") {
+                    sh '''${WORKSPACE}/yocto/nxp-docker/docker-run-user.sh -n nxp-yocto -b $(pwd) ./build-yocto.sh'''
+                }
             }
         }
     }

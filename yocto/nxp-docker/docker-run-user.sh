@@ -1,9 +1,9 @@
-#! /bin/sh
+#! /bin/bash
 
 set -eu
 
 usage () {
-    echo "Fatal: $@"
+    echo "Fatal:" "$@"
     cat <<EOF
     echo $0 [-n IMAGE_NAME]
 EOF
@@ -18,18 +18,18 @@ while getopts "n:b:" OPTION; do
     case ${OPTION} in
         n)
             IMAGE_NAME=${OPTARG}
-            shift
             ;;
         b)
             BASEDIR=${OPTARG}
-            shift
+            ;;
+        *)
             ;;
     esac
 done
 
 shift $((OPTIND-1))
 
-docker image inspect ${IMAGE_NAME} 1>&2>/dev/null || usage "${IMAGE_NAME} does not exist"
+docker image inspect "${IMAGE_NAME}" 1>&2>/dev/null || usage "${IMAGE_NAME} does not exist"
 
 #
 # Theorically, should get the user id within the container.
@@ -39,8 +39,8 @@ docker image inspect ${IMAGE_NAME} 1>&2>/dev/null || usage "${IMAGE_NAME} does n
 #BLD_UID=$(./docker-run-user.sh id -u)
 #BLD_GID=$(./docker-run-user.sh id -g)
 
-BLD_UID=$(id -u)
-BLD_GID=$(id -g)
+BLD_UID=1000
+BLD_GID=1000
 
 VOLUMES=(\
     "${BASEDIR}"/volume/yocto \
@@ -49,29 +49,30 @@ VOLUMES=(\
     "${BASEDIR}"/volume/sstate-cache
 )
 
-for volume in ${VOLUMES[@]};
+for volume in "${VOLUMES[@]}";
 do
     if [ ! -d "${volume}" ];
     then
-        echo Creating volume $volume
+        echo Creating volume "$volume"
         mkdir -p "${volume}"
-        if [[ ${volume} =~ '/tmp' ]];
+        if [[ "${volume}" =~ '/tmp' ]];
         then
-            chmod 777 ${volume}
+            chmod 777 "${volume}"
         fi
         # change volume IDs to build-user IDs mapped outside the container
-        podman unshare chown $BLD_UID:$BLD_GID "${volume}"
+        podman unshare chown "${BLD_UID}":"${BLD_GID}" "${volume}"
     fi
 done
 
+eval "$(ssh-agent)"
 docker run  \
      --volume "${BASEDIR}"/volume/yocto:/home/build-user/yocto:rw,z \
      --volume /srv/nas/vtec/yocto/downloads:/home/build-user/yocto/downloads:rw \
      --volume /srv/nas/vtec/yocto/sstate-cache:/home/build-user/yocto/sstate-cache:rw \
      --volume "${BASEDIR}"/volume/tmp:/tmp:rw,z \
-     --user $(id -u) \
-     --volume $SSH_AUTH_SOCK:/ssh-agent:ro,z \
+     --user "${BLD_UID}" \
+     --volume "${SSH_AUTH_SOCK}":/ssh-agent:ro,z \
      --env SSH_AUTH_SOCK=/ssh-agent \
      --rm \
-     -ti ${IMAGE_NAME} \
+     -ti "${IMAGE_NAME}" \
      "$@"
