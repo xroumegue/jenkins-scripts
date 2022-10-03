@@ -6,6 +6,8 @@ FROM ubuntu:20.04
 ENV DEBIAN_FRONTEND noninteractive
 ARG SSH_KEY
 
+COPY 99proxy /etc/apt/apt.conf.d/
+
 RUN apt-get -y update && \
     apt-get -y upgrade
 
@@ -39,6 +41,7 @@ RUN \
 COPY ssh_known_hosts /home/build-user/.ssh/known_hosts
 COPY ssh_config /home/build-user/.ssh/config
 COPY no_passwd /etc/sudoers.d/
+
 RUN echo "${SSH_KEY}" > /home/build-user/.ssh/id_rsa
 
 RUN chown -R build-user:build-user /home/build-user/.ssh/ && \
