@@ -1,0 +1,7 @@
+
+Acquire {
+  HTTP::proxy "http://emea.nics.nxp.com:8080";
+  HTTPS::proxy "http://emea.nics.nxp.com:8080";
+  FTP::proxy "http://emea.nics.nxp.com:8080";
+}
+
