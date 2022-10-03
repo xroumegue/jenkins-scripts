@@ -20,14 +20,6 @@ pipeline {
             }
         }
 
-        stage('create volume') {
-            steps {
-                dir("work") {
-                    sh '''bash -c \' pwd; ls; echo ${WORKSPACE} ;ls ${WORKSPACE} \''''
-                }
-            }
-        }
-
         stage('build yocto') {
             steps {
                 dir("work") {
