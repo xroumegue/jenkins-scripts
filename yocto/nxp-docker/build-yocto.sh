@@ -35,7 +35,7 @@ while getopts "u:d:M:t:m:b:S:D:Y:P:H:" OPTION; do
         YOCTO_DIR=${OPTARG}
         ;;
     P)
-        PSERVER_HOST=${OPTARG}
+        PRSERVER_HOST=${OPTARG}
         ;;
     H)
         HSERVER_HOST=${OPTARG}
@@ -60,8 +60,8 @@ unset OPTIND
 : "${REPO_REV:=stable}"
 : "${BB_THREADS:=$(nproc)}"
 : "${PARALLEL_MAKE:=$(nproc)}"
-: "${PSERVER_HOST:=$(hostname -s):8585}
-: "${HSERVER_HOST:=$(hostname -s):8686}
+: "${PRSERVER_HOST:=$(hostname -s):8585}"
+: "${HSERVER_HOST:=$(hostname -s):8686}"
 
 [ -e ${YOCTO_DIR} ] || mkdir -p ${YOCTO_DIR}
 cd ${YOCTO_DIR}
@@ -93,6 +93,8 @@ BB_LAYERS_CONF="conf/bblayers.conf"
 # Remove variables we want to overidde anyway.
 sed -i -e '/DL_DIR/d' "${BB_LOCAL_CONF}"
 sed -i -e '/SSTATE_DIR/d' "${BB_LOCAL_CONF}"
+sed -i -e '/BB_HASHSERVE/d' "${BB_LOCAL_CONF}"
+sed -i -e '/PRSERV_HOST/d' "${BB_LOCAL_CONF}"
 
 if ! grep -Eq '^BB_NICE_LEVEL '  "${BB_LOCAL_CONF}" ; then
     echo "BB_NICE_LEVEL = \"10\"" >> "${BB_LOCAL_CONF}"
@@ -103,7 +105,7 @@ if ! grep -Eq '^BB_HASHSERVE ' "${BB_LOCAL_CONF}" ; then
 fi
 
 if ! grep -Eq '^PRSERV_HOST ' "${BB_LOCAL_CONF}" ; then
-    echo "PRSERV_HOST = \"${PSERVER_HOST}\"" >> "${BB_LOCAL_CONF}"
+    echo "PRSERV_HOST = \"${PRSERVER_HOST}\"" >> "${BB_LOCAL_CONF}"
 fi
 
 if ! grep -Eq '^BB_NUMBER_THREADS ' "${BB_LOCAL_CONF}" ; then

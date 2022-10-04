@@ -23,7 +23,7 @@ pipeline {
         stage('build yocto') {
             steps {
                 dir("work") {
-                    sh '''${WORKSPACE}/yocto/nxp-docker/docker-run-user.sh -n nxp-yocto -b $(pwd) ./build-yocto.sh'''
+                    sh '''${WORKSPACE}/yocto/nxp-docker/docker-run-user.sh -n nxp-yocto -b $(pwd) ./build-yocto.sh -H 10.161.69.158:8686 -P 10.161.69.158:8585'''
                 }
             }
         }
