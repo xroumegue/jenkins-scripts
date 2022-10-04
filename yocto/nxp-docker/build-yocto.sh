@@ -5,7 +5,7 @@ set -ux
 REALPATH="$(readlink -e "$0")"
 BASEDIR="$(dirname "${REALPATH}")"
 
-while getopts "u:d:M:t:m:b:S:D:Y:" OPTION; do
+while getopts "u:d:M:t:m:b:S:D:Y:P:H:" OPTION; do
     case ${OPTION} in
         u)
             REMOTE=${OPTARG}
@@ -25,15 +25,21 @@ while getopts "u:d:M:t:m:b:S:D:Y:" OPTION; do
         b)
             BRANCH=${OPTARG}
             ;;
-	S)
-	    SSTATE_DIR=${OPTARG}
-	    ;;
-	D)
-	    DOWNLOAD_DIR=${OPTARG}
-	    ;;
-	Y)
-	    YOCTO_DIR=${OPTARG}
-	    ;;
+    S)
+        SSTATE_DIR=${OPTARG}
+        ;;
+    D)
+        DOWNLOAD_DIR=${OPTARG}
+        ;;
+    Y)
+        YOCTO_DIR=${OPTARG}
+        ;;
+    P)
+        PSERVER_HOST=${OPTARG}
+        ;;
+    H)
+        HSERVER_HOST=${OPTARG}
+        ;;
     esac
 done
 
@@ -54,6 +60,8 @@ unset OPTIND
 : "${REPO_REV:=stable}"
 : "${BB_THREADS:=$(nproc)}"
 : "${PARALLEL_MAKE:=$(nproc)}"
+: "${PSERVER_HOST:=$(hostname -s):8585}
+: "${HSERVER_HOST:=$(hostname -s):8686}
 
 [ -e ${YOCTO_DIR} ] || mkdir -p ${YOCTO_DIR}
 cd ${YOCTO_DIR}
@@ -86,6 +94,14 @@ BB_LAYERS_CONF="conf/bblayers.conf"
 sed -i -e '/DL_DIR/d' "${BB_LOCAL_CONF}"
 sed -i -e '/SSTATE_DIR/d' "${BB_LOCAL_CONF}"
 
+if ! grep -Eq '^BB_HASHSERVE ' "${BB_LOCAL_CONF}" ; then
+    echo "BB_HASHSERVE = \"${HSERVER_HOST}\"" >> "${BB_LOCAL_CONF}"
+fi
+
+if ! grep -Eq '^PRSERV_HOST ' "${BB_LOCAL_CONF}" ; then
+    echo "PRSERV_HOST = \"${PSERVER_HOST}\"" >> "${BB_LOCAL_CONF}"
+fi
+
 if ! grep -Eq '^BB_NUMBER_THREADS ' "${BB_LOCAL_CONF}" ; then
     echo "BB_NUMBER_THREADS ?= \"${BB_THREADS}\"" >> "${BB_LOCAL_CONF}"
 fi
@@ -103,7 +119,7 @@ if ! grep -Eq '^SSTATE_DIR' "${BB_LOCAL_CONF}" ; then
 fi
 
 if ! grep -Eq '^DL_DIR' "${BB_LOCAL_CONF}" ; then
-	echo "DL_DIR ?= \"${DOWNLOAD_DIR}\"" >> "${BB_LOCAL_CONF}"
+    echo "DL_DIR ?= \"${DOWNLOAD_DIR}\"" >> "${BB_LOCAL_CONF}"
 fi
 
 if ! grep -Eq '^OE_TERMINAL' "${BB_LOCAL_CONF}" ; then
