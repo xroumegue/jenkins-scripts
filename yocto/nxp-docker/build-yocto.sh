@@ -94,6 +94,10 @@ BB_LAYERS_CONF="conf/bblayers.conf"
 sed -i -e '/DL_DIR/d' "${BB_LOCAL_CONF}"
 sed -i -e '/SSTATE_DIR/d' "${BB_LOCAL_CONF}"
 
+if ! grep -Eq '^BB_NICE_LEVEL '  "${BB_LOCAL_CONF}" ; then
+    echo "BB_NICE_LEVEL = \"10\"" >> "${BB_LOCAL_CONF}"
+fi
+
 if ! grep -Eq '^BB_HASHSERVE ' "${BB_LOCAL_CONF}" ; then
     echo "BB_HASHSERVE = \"${HSERVER_HOST}\"" >> "${BB_LOCAL_CONF}"
 fi
