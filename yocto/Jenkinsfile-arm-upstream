@@ -8,17 +8,6 @@ pipeline {
 
     triggers{ pollSCM('H/15 * * * *') }
 
-    parameters {
-        string(
-            name: 'SSTATE_DIR',
-            description: 'Sstate cache directory'
-        )
-        string(
-            name: 'DL_DIR',
-            description: 'Download directory'
-        )
-    }
-
     stages {
         stage('Build-helpers') {
             steps {
@@ -245,8 +234,6 @@ pipeline {
                 dir("work") {
                     sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
                     sh '''cp ${WORKSPACE}/helpers/etc/env-default-4.1.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
-                    sh '''sed -i -e "s#sstatedir_default=#sstatedir_default=$SSTATE_DIR#"  ${WORKSPACE}/helpers/etc/env-default.sh'''
-                    sh '''sed -i -e "s#downloaddir_default=#downloaddir_default=$DL_DIR#"  ${WORKSPACE}/helpers/etc/env-default.sh'''
                     sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force setup'''
                 }
             }
