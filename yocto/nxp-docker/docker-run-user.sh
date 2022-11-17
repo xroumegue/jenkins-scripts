@@ -65,6 +65,7 @@ do
 done
 
 docker run  \
+     --volume $HOME/.netrc:/home/build-user/.netrc:ro,z \
      --volume "${BASEDIR}"/volume/yocto:/home/build-user/yocto:rw,z \
      --volume "${BASEDIR}"/volume/downloads:/home/build-user/yocto/downloads:rw,z \
      --volume "${BASEDIR}"/volume/sstate-cache:/home/build-user/yocto/sstate-cache:rw,z \
