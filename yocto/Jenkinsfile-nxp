@@ -1,0 +1,116 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('Build-helpers') {
+            steps {
+                checkout(
+                    changelog: true,
+                    poll: true,
+                    scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'SubmoduleOption',
+                                disableSubmodules: false,
+                                parentCredentials: false,
+                                recursiveSubmodules: true,
+                                reference: '',
+                                trackingSubmodules: false
+                            ],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'helpers'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/xroumegue/build-helpers.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    changelog: true,
+                    poll: true,
+                    scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'staging']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'SubmoduleOption',
+                                disableSubmodules: false,
+                                parentCredentials: false,
+                                recursiveSubmodules: true,
+                                reference: '',
+                                trackingSubmodules: false
+                            ],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'helpers-config'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'git@github.com:xroumegue/build-helpers-config.git']
+                        ]
+                    ]
+                )
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
+                    sh '''cp ${WORKSPACE}/helpers/etc/env-default-bsp.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --update setup'''
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force setup'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh build'''
+                }
+            }
+        }
+
+        stage('sdk') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh sdk'''
+                }
+            }
+        }
+    }
+}
