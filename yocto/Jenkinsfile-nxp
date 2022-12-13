@@ -100,12 +100,10 @@ pipeline {
             steps {
                 dir("work") {
                     script {
-                        def machines = ['imx8qm-mek', 'imx8qxp-mek', 'imx8mp-evk']
+                        def machines = ['imx8qm-mek', 'imx8qxp-mek', 'imx8mpevk', 'imx93evk']
                         for (int i = 0; i < machines.size(); i++) {
-							sh ''' echo ${machines[i]} '''
-							sh " echo ${machines[i]} "
                             sh "${WORKSPACE}/helpers/yocto/yocto-build.sh --machine ${machines[i]} --force setup"
-                            sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh build'''
+                            sh "${WORKSPACE}/helpers/yocto/yocto-build.sh build"
                         }
                     }
                 }
