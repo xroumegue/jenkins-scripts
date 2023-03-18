@@ -1,0 +1,153 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'zynq-zturn']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'linux'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/xroumegue/linux']
+                            ]
+                        ]
+                    )
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'zynq-zturn']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'u-boot'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/xroumegue/u-boot']
+                            ]
+                        ]
+                    )
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'zynq-zturn']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'buildroot'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/xroumegue/buildroot']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        stage("changes") {
+            steps {
+                dir("work/linux") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/u-boot") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/buildroot") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+            }
+        }
+
+        stage('u-boot') {
+            steps {
+                dir("work/u-boot") {
+                    sh '''
+                        make ARCH=arm CROSS_COMPILE=arm-linux-gnu- xilinx_zynq_virt_defconfig
+                        make DEVICE_TREE=zynq-zturn ARCH=arm CROSS_COMPILE=arm-linux-gnu- -j$(nproc)
+                    '''
+                }
+            }
+        }
+
+        stage('linux') {
+            steps {
+                dir("work/linux") {
+                    sh '''
+                        make ARCH=arm CROSS_COMPILE=arm-linux-gnu- xilinx_zynq_defconfig
+                        make ARCH=arm CROSS_COMPILE=arm-linux-gnu- -j$(nproc) UIMAGE_LOADADDR=0x8000 uImage dtbs modules
+                    '''
+                }
+            }
+        }
+
+        stage('buildroot') {
+            steps {
+                dir("work/buildroot") {
+                    sh '''
+                        make zynq_zturn_ramdisk_defconfig
+                        make -j$(nproc)
+                    '''
+                }
+            }
+        }
+    }
+}
