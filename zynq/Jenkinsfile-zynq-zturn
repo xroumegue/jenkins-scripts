@@ -149,5 +149,77 @@ pipeline {
                 }
             }
         }
+
+        stage('bootimage') {
+            steps {
+                dir("work") {
+                    sh '''
+                        rm -Rf images
+                        mkdir images
+                        cp u-boot/spl/boot.bin images/
+                        cp u-boot/u-boot.img images/
+                        cp linux/arch/arm/boot/uImage images/
+                        cp linux/arch/arm/boot/dts/zynq-zturn.dtb images/system.dtb
+                        cp linux/arch/arm/boot/dts/zynq-zturn-cosim.dtb images/system-cosim.dtb
+                        cp buildroot/output/images/rootfs* images/
+                    '''
+                    prependToFile file: "images/genimage.cfg", content: '''
+image boot.vfat {
+	vfat {
+		files = {
+			"boot.bin",
+			"u-boot.img",
+			"system.dtb",
+			"uImage"
+		}
+
+		file extlinux/extlinux.conf {
+			image = extlinux.conf
+		}
+	}
+
+	size = 32M
+}
+
+image sdcard.img {
+	hdimage {
+	}
+
+	partition boot {
+		partition-type = 0xC
+		bootable = "true"
+		image = "boot.vfat"
+	}
+
+	partition rootfs {
+		partition-type = 0x83
+		image = "rootfs.ext4"
+	}
+}
+'''
+                    prependToFile file: "images/extlinux.conf", content: '''
+label linux
+kernel /uImage
+devicetree /system.dtb
+append console=ttyPS0,115200 root=/dev/mmcblk0p2 rw rootwait
+'''
+            sh '''
+                cd images
+
+                ROOTPATH_TMP="$(mktemp -d)"
+                BINARIES_DIR="$(pwd)"
+                GENIMAGE_TMP="$(mktemp -d)"
+                GENIMAGE_CFG="$(pwd)"/genimage.cfg
+
+                genimage \
+                    --rootpath "${ROOTPATH_TMP}"     \
+                    --tmppath "${GENIMAGE_TMP}"    \
+                    --inputpath "${BINARIES_DIR}"  \
+                    --outputpath "${BINARIES_DIR}" \
+                    --config "${GENIMAGE_CFG}"
+            '''
+                }
+            }
+        }
     }
 }
