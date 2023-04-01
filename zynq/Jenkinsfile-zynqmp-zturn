@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        quietPeriod 600
+    }
+
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'u-boot'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/Xilinx/u-boot-xlnx.git']
+                            ]
+                        ]
+                    )
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'linux'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/Xilinx/linux-xlnx.git']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        stage("changes") {
+            steps {
+                dir("work/linux") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/u-boot") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+            }
+        }
+
+        stage('u-boot') {
+
+            steps {
+                dir("work/u-boot") {
+                    sh '''
+                        make ARCH=arm CROSS_COMPILE=aarch64-linux-gnu- xilinx_zynqmp_virt_defconfig
+                        make ARCH=arm CROSS_COMPILE=aarch64-linux-gnu- DEVICE_TREE="zynqmp-zcu102-rev1.0"  -j$(nproc)
+                    '''
+                }
+            }
+        }
+
+        stage('linux') {
+            steps {
+                dir("work/linux") {
+                    sh '''
+                        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- xilinx_zynqmp_defconfig
+                        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image dtbs modules
+                    '''
+                }
+            }
+        }
+    }
+}
