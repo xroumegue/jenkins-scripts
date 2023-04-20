@@ -1,0 +1,7 @@
+depends_on("systemC/SYSTEMC_CXX_VERSION")
+whatis("Version: VERILATOR_VERSION")
+setenv("VERILATOR_ROOT", "VERILATOR_HOME")
+prepend_path( "PATH", "VERILATOR_HOME/bin")
+prepend_path( "LD_LIBRARY_PATH", "VERILATOR_HOME/lib")
+prepend_path( "MANPATH", "VERILATOR_HOME/share/man")
+prepend_path( "PKG_CONFIG_PATH", "VERILATOR_HOME/share/pkgconfig")

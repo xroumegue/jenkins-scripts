@@ -23,6 +23,35 @@ pipeline {
                             extensions: [
                                 [ $class: 'CleanCheckout'],
                                 [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'embeddedsw'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/Xilinx/embeddedsw.git']
+                            ]
+                        ]
+                    )
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
                                     relativeTargetDir: 'u-boot'
                                 ],
                                 [ $class: 'CheckoutOption',
@@ -77,6 +106,9 @@ pipeline {
 
         stage("changes") {
             steps {
+                dir("work/embeddedsw") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
                 dir("work/linux") {
                     lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
                 }
@@ -86,8 +118,18 @@ pipeline {
             }
         }
 
-        stage('u-boot') {
+        stage('embeddedsw') {
+            steps {
+                dir("work/embeddedsw") {
+                    sh '''
+                        make ARCH=arm CROSS_COMPILE=aarch64-linux-gnu- xilinx_zynqmp_virt_defconfig
+                        make ARCH=arm CROSS_COMPILE=aarch64-linux-gnu- DEVICE_TREE="zynqmp-zcu102-rev1.0"  -j$(nproc)
+                    '''
+                }
+            }
+        }
 
+        stage('u-boot') {
             steps {
                 dir("work/u-boot") {
                     sh '''

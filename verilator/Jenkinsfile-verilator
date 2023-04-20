@@ -1,0 +1,141 @@
+def map = [
+    Bob  : 42,
+    Alice: 54,
+    Max  : 33
+]
+def sc_versions = ['2.3.4']
+def std_cxx_versions = ['cpp11', 'cp14', 'cp17']
+
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    parameters {
+        string(
+            name: 'VERILATOR_VERSION',
+            defaultValue: 'v4.228',
+            description: 'Verilator Version'
+        )
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: "${params.VERILATOR_VERSION}"]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'verilator'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/verilator/verilator.git']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        stage('build') {
+            matrix {
+                axes {
+                    axis {
+                        name 'SYSTEMC_VERSION'
+                        values '2.3.4'
+                    }
+                    axis {
+                        name 'CXX_VERSION'
+                        values 'cpp11', 'cpp14', 'cpp17'
+                    }
+                }
+                stages {
+                    stage("build version") {
+						options { lock('synchronous-matrix') }
+                        steps {
+                            dir("work/verilator") {
+                                script {
+                                    echo "Building Version: ${SYSTEMC_VERSION}-${CXX_VERSION}"
+                                    sh '''
+                                        VERILATOR_VERSION=$(git describe | sed "s/verilator_//")
+                                        VERILATOR_VERSION_FULL="${VERILATOR_VERSION}"-"${SYSTEMC_VERSION}"-"${CXX_VERSION}"
+                                        VERILATOR_PREFIX=$(pwd)/_install-${VERILATOR_VERSION_FULL}
+
+                                        export SYSTEMC_HOME=/opt/systemc/${SYSTEMC_VERSION}-${CXX_VERSION}
+                                        export SYSTEMC=${SYSTEMC_HOME}
+                                        export SYSTEMC_INCLUDE=${SYSTEMC_HOME}/include
+                                        export SYSTEMC_LIBDIR=${SYSTEMC_HOME}/lib64
+
+										autoconf
+                                        CXXFLAGS="-std=c++${CXX_VERSION#cpp}" ./configure \
+                                            --prefix "$VERILATOR_PREFIX" \
+                                            --bindir "$VERILATOR_PREFIX"/bin \
+                                            --exec-prefix "$VERILATOR_PREFIX"/bin
+
+                                        make clean
+
+                                        make -j"$(nproc)"
+
+                                        rm -Rf "${VERILATOR_PREFIX}"
+										mkdir ${VERILATOR_PREFIX}
+                                        make install
+
+                                        cd ${VERILATOR_PREFIX}
+                                        m4 -DSYSTEMC_CXX_VERSION=${SYSTEMC_VERSION}-${CXX_VERSION} -DVERILATOR_HOME="/opt/verilator/${VERILATOR_VERSION_FULL}" -DVERILATOR_VERSION=${VERILATOR_VERSION_FULL#v} ${WORKSPACE}/verilator/verilator-lmod.m4 > share/verilator/${VERILATOR_VERSION_FULL#v}.lua
+                                        ln -s share/verilator/include include
+                                        for file in $(ls share/verilator/bin)
+                                        do
+                                            ln -s share/verilator/bin/"${file}" bin/"${file}"
+                                        done
+
+                                        cd ..
+
+                                        mkdir -p archives || rm -f archives/verilator-${VERILATOR_VERSION_FULL}.tar.bz2
+                                        tar -C ${VERILATOR_PREFIX} -cjvf archives/verilator-${VERILATOR_VERSION_FULL}.tar.bz2 .
+                                    '''
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'work/verilator/archives/*.tar.bz2', fingerprint: true
+        }
+    }
+
+}
