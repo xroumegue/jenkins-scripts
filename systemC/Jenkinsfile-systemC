@@ -1,0 +1,111 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+        copyArtifactPermission('verilator')
+    }
+
+    parameters {
+        string(
+            name: 'SC_VERSION',
+            defaultValue: '2.3.4',
+            description: 'SystemC Version'
+        )
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: "${params.SC_VERSION}"]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'systemC'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/accellera-official/systemc.git']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                script {
+                    def sc_versions = [params.SC_VERSION]
+                    def std_cxx_versions = ['cpp11', 'cpp14', 'cpp17']
+
+                    sh(script: 'rm -Rf work/archives; mkdir -p work/archives')
+                    for (String sc_version: sc_versions) {
+                        for (String std_cxx_version: std_cxx_versions) {
+                            env.SC_VERSION = sc_version
+                            env.CXX_VERSION = std_cxx_version
+
+                            dir("work/systemC") {
+                                sh '''
+                                    sc_prefix=$(pwd)/_install/${SC_VERSION}-${CXX_VERSION}
+                                    rm -Rf ${sc_prefix}
+                                    mkdir -p ${sc_prefix}
+                                    rm -Rf build
+                                    mkdir build
+                                    cd build
+
+                                    cmake \
+                                        -DCMAKE_CXX_STANDARD=${CXX_VERSION#cpp} \
+                                        -DBUILD_SOURCE_DOCUMENTATION=1 \
+                                        -DCMAKE_INSTALL_PREFIX=${sc_prefix} ..
+
+                                    make clean
+                                    make -j$(nproc)
+                                    make install
+
+                                    mkdir -p ${sc_prefix}/share/lmod
+                                    m4 -DSC_VERSION=${SC_VERSION}-${CXX_VERSION} ${WORKSPACE}/systemC/systemc-lmod.m4 > ${sc_prefix}/share/lmod/${SC_VERSION}-${CXX_VERSION}.lua.m4
+                                    tar -C ${sc_prefix}/.. -cjvf ../../archives/systemC-${SC_VERSION}-${CXX_VERSION}.tar.bz2 ${SC_VERSION}-${CXX_VERSION}
+                                '''
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'work/archives/*.tar.bz2', fingerprint: true
+        }
+    }
+
+}
