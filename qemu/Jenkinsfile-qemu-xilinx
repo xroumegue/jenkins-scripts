@@ -1,0 +1,96 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '3'))
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'master']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'qemu-xilinx'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/Xilinx/qemu.git']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        stage("changes") {
+            steps {
+                dir("work/qemu-xilinx") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                dir("work/qemu-xilinx") {
+                    sh '''
+                        rm -Rf build
+                        mkdir build
+                        cd build
+                        ../configure \
+                            ../qemu/configure --target-list=aarch64-softmmu,microblazeel-softmmu,riscv64-softmmu \
+                            --enable-fdt \
+                            --disable-kvm \
+                            --disable-xen \
+                            --prefix=$(pwd)/_install
+
+                        make -j$((`nproc`+1))
+                        make install
+
+                    '''
+                }
+            }
+        }
+
+        stage('archive') {
+            steps {
+                dir("work/qemu-xilinx/build") {
+                    sh '''
+                        tar -C $(pwd)/_install -cjvf qemu-xilinx.tar.bz2 .
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'work/qemu-xilinx/build/qemu-xilinx.tar.bz2', fingerprint: true
+        }
+    }
+
+}
