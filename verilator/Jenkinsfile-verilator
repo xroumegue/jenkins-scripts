@@ -1,11 +1,3 @@
-def map = [
-    Bob  : 42,
-    Alice: 54,
-    Max  : 33
-]
-def sc_versions = ['2.3.4']
-def std_cxx_versions = ['cpp11', 'cp14', 'cp17']
-
 pipeline {
     agent any
 
@@ -68,61 +60,71 @@ pipeline {
         }
 
         stage('build') {
-            matrix {
-                axes {
-                    axis {
-                        name 'SYSTEMC_VERSION'
-                        values '2.3.4'
-                    }
-                    axis {
-                        name 'CXX_VERSION'
-                        values 'cpp11', 'cpp14', 'cpp17'
-                    }
-                }
-                stages {
-                    stage("build version") {
-						options { lock('synchronous-matrix') }
-                        steps {
+            steps {
+                script {
+                    def sc_versions = ['2.3.4']
+                    def std_cxx_versions = ['cpp11', 'cpp14', 'cpp17']
+
+                    sh(script: 'rm -Rf work/archives; mkdir -p work/archives')
+                    sh(script: 'rm -Rf work/systemC; mkdir -p work/systemC')
+
+                    for (String sc_version: sc_versions) {
+                        for (String std_cxx_version: std_cxx_versions) {
+                            copyArtifacts(
+                                projectName: 'systemC',
+                                filter: "**/systemC-${sc_version}-${std_cxx_version}.tar.bz2",
+                                target: "work/systemC",
+                                flatten: true,
+                                parameters: "SC_VERSION=${sc_version}",
+                            )
+
+                            dir("work/systemC") {
+                                sh(script:"tar xvfj systemC-${sc_version}-${std_cxx_version}.tar.bz2")
+                            }
+
+                            def sc_home = "${WORKSPACE}/work/systemC/${sc_version}-${std_cxx_version}"
+                            env.SYSTEMC_VERSION = sc_version
+                            env.CXX_VERSION = std_cxx_version
+                            env.SYSTEMC_HOME= sc_home
+                            env.SYSTEMC= sc_home
+                            env.SYSTEMC_INCLUDE = "${sc_home}/include"
+                            env.SYSTEMC_LIBDIR = "${sc_home}/lib64"
+
                             dir("work/verilator") {
-                                script {
-                                    echo "Building Version: ${SYSTEMC_VERSION}-${CXX_VERSION}"
-                                    sh '''
-                                        VERILATOR_VERSION=$(git describe | sed "s/verilator_//")
-                                        VERILATOR_VERSION_FULL="${VERILATOR_VERSION}"-"${SYSTEMC_VERSION}"-"${CXX_VERSION}"
-                                        VERILATOR_PREFIX=$(pwd)/_install-${VERILATOR_VERSION_FULL}
+                                echo "Building Version: ${SYSTEMC_VERSION}-${CXX_VERSION}"
+                                sh '''
+                                    ls ../systemC
+                                    VERILATOR_VERSION=$(git describe | sed "s/verilator_//")
+                                    VERILATOR_VERSION_FULL="${VERILATOR_VERSION}"-"${SYSTEMC_VERSION}"-"${CXX_VERSION}"
+                                    VERILATOR_PREFIX=$(pwd)/_install/${VERILATOR_VERSION_FULL#v}
 
-                                        export SYSTEMC_HOME=/opt/systemc/${SYSTEMC_VERSION}-${CXX_VERSION}
-                                        export SYSTEMC=${SYSTEMC_HOME}
-                                        export SYSTEMC_INCLUDE=${SYSTEMC_HOME}/include
-                                        export SYSTEMC_LIBDIR=${SYSTEMC_HOME}/lib64
+                                    autoconf
+                                    CXXFLAGS="-std=c++${CXX_VERSION#cpp}" ./configure \
+                                        --prefix "$VERILATOR_PREFIX" \
+                                        --bindir "$VERILATOR_PREFIX"/bin \
+                                        --exec-prefix "$VERILATOR_PREFIX"/bin
 
-										autoconf
-                                        CXXFLAGS="-std=c++${CXX_VERSION#cpp}" ./configure \
-                                            --prefix "$VERILATOR_PREFIX" \
-                                            --bindir "$VERILATOR_PREFIX"/bin \
-                                            --exec-prefix "$VERILATOR_PREFIX"/bin
+                                    make clean
 
-                                        make clean
+                                    make -j"$(nproc)"
 
-                                        make -j"$(nproc)"
+                                    rm -Rf "${VERILATOR_PREFIX}"/..
+                                    mkdir -p ${VERILATOR_PREFIX}
+                                    make install
 
-                                        rm -Rf "${VERILATOR_PREFIX}"
-										mkdir ${VERILATOR_PREFIX}
-                                        make install
+                                    cd ${VERILATOR_PREFIX}
+                                    mkdir -p share/verilator/lmod
+                                    m4 -DSYSTEMC_CXX_VERSION=${SYSTEMC_VERSION}-${CXX_VERSION} -DVERILATOR_VERSION=${VERILATOR_VERSION_FULL#v} ${WORKSPACE}/verilator/verilator-lmod.m4 > share/verilator/lmod/${VERILATOR_VERSION_FULL#v}.lua.m4
+                                    ln -s share/verilator/include include
+                                    for file in $(ls share/verilator/bin)
+                                    do
+                                        ln -s ../share/verilator/bin/"${file}" bin/"${file}"
+                                    done
 
-                                        cd ${VERILATOR_PREFIX}
-                                        m4 -DSYSTEMC_CXX_VERSION=${SYSTEMC_VERSION}-${CXX_VERSION} -DVERILATOR_HOME="/opt/verilator/${VERILATOR_VERSION_FULL}" -DVERILATOR_VERSION=${VERILATOR_VERSION_FULL#v} ${WORKSPACE}/verilator/verilator-lmod.m4 > share/verilator/${VERILATOR_VERSION_FULL#v}.lua
-                                        ln -s share/verilator/include include
-                                        for file in $(ls share/verilator/bin)
-                                        do
-                                            ln -s share/verilator/bin/"${file}" bin/"${file}"
-                                        done
+                                    cd ..
 
-                                        cd ..
-
-                                        mkdir -p archives || rm -f archives/verilator-${VERILATOR_VERSION_FULL}.tar.bz2
-                                        tar -C ${VERILATOR_PREFIX} -cjvf archives/verilator-${VERILATOR_VERSION_FULL}.tar.bz2 .
-                                    '''
+                                    tar -C ${VERILATOR_PREFIX}/.. -cjvf ${WORKSPACE}/work/archives/verilator-${VERILATOR_VERSION_FULL}.tar.bz2 ${VERILATOR_VERSION_FULL#v}
+                                '''
                                 }
                             }
                         }
@@ -130,12 +132,10 @@ pipeline {
                 }
             }
         }
-    }
 
     post {
         success {
-            archiveArtifacts artifacts: 'work/verilator/archives/*.tar.bz2', fingerprint: true
+            archiveArtifacts artifacts: 'work/archives/*.tar.bz2', fingerprint: true
         }
     }
-
 }
