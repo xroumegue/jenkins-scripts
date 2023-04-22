@@ -1,0 +1,87 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    parameters {
+        string(
+            name: 'release',
+            defaultValue: '2022.2',
+            description: 'Xilinx release (YYYY.X)'
+        )
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                        checkout(
+                            changelog: true,
+                            poll: true,
+                            scm: [
+                                $class: 'GitSCM',
+                                branches: [[name: "*/xilinx-v${params.release}"]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [ $class: 'CleanCheckout'],
+                                    [ $class: 'RelativeTargetDirectory',
+                                        relativeTargetDir: 'atf'
+                                    ],
+                                    [ $class: 'CheckoutOption',
+                                        timeout: 30
+                                    ],
+                                    [ $class: 'CloneOption',
+                                        honorRefspec: true,
+                                    ]
+                                ],
+                                submoduleCfg: [],
+                                userRemoteConfigs: [
+                                    [
+                                    refspec:"+refs/tags/xilinx-v${params.release}:refs/remotes/origin/xilinx-v${params.release}",
+                                    url: 'https://github.com/Xilinx/arm-trusted-firmware.git']
+                                ]
+                            ]
+                        )
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                script {
+                    env.PATH = "/opt/toolchains/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-elf/bin:" + env.PATH
+
+                    env.CROSS_COMPILE = "aarch64-none-elf-"
+                    env.PLAT = "zynqmp"
+                    env.RESET_TO_BL31 = "1"
+
+                    dir("work/atf") {
+                        sh '''
+                            make CROSS_COMPILE=aarch64-none-elf- PLAT=zynqmp RESET_TO_BL31=1 clean
+                            make CROSS_COMPILE=aarch64-none-elf- PLAT=zynqmp RESET_TO_BL31=1 PRELOADED_BL33_BASE=0x10080000  bl31
+                        '''
+                        }
+                    }
+                }
+            }
+        }
+
+    post {
+        success {
+            dir('work/atf/build/zynqmp/release') {
+            archiveArtifacts artifacts: 'bl31.bin, bl31/bl31.elf', fingerprint: true
+            }
+        }
+    }
+}

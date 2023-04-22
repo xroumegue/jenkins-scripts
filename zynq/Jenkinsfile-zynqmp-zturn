@@ -29,10 +29,6 @@ pipeline {
                                     timeout: 30
                                 ],
                                 [ $class: 'CloneOption',
-                                    depth: 0,
-                                    noTags: false,
-                                    reference: '',
-                                    shallow: false,
                                     timeout: 45,
                                 ]
                             ],
