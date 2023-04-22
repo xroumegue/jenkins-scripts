@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    parameters {
+        string(
+            name: 'release',
+            defaultValue: '2022.2',
+            description: 'Xilinx tag'
+        )
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                        checkout(
+                            changelog: true,
+                            poll: true,
+                            scm: [
+                                $class: 'GitSCM',
+                                branches: [[name: "xilinx_v${params.release}"]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [ $class: 'CleanCheckout'],
+                                    [ $class: 'RelativeTargetDirectory',
+                                        relativeTargetDir: 'embeddedsw'
+                                    ],
+                                    [ $class: 'CheckoutOption',
+                                        timeout: 30
+                                    ],
+                                    [ $class: 'CloneOption',
+                                        depth: 0,
+                                        noTags: false,
+                                        reference: '',
+                                        ehallow: false,
+                                        timeout: 45,
+                                    ]
+                                ],
+                                submoduleCfg: [],
+                                userRemoteConfigs: [
+                                    [url: 'https://github.com/Xilinx/embeddedsw.git']
+                                ]
+                            ]
+                        )
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                script {
+                    env.PATH = "/opt/toolchains/microblazeel-xilinx-elf/${params.release}/bin:" + env.PATH
+                    env.PMUFW_SRC = "lib/sw_apps/zynqmp_pmufw/src"
+
+                    dir("work/embeddedsw") {
+                        sh '''
+                            make -C ${PMUFW_SRC}
+                            cp  ${PMUFW_SRC}/executable.elf pmufw.elf
+                        '''
+                        }
+                    }
+                }
+            }
+        }
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'work/embeddedsw/pmufw.elf', fingerprint: true
+        }
+    }
+}
