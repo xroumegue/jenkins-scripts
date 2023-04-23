@@ -1,0 +1,102 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    parameters {
+        choice choices: ['upstream', 'xilinx'], description: 'Git remote', name: 'remote'
+        string defaultValue: '2022.2', description: 'Xilinx Release YYYY.X', name: 'release'
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+            steps {
+                script {
+                    def branch = "refs/remotes/upstream/master"
+                    if (params.remote == "upstream") {
+                        branch = "refs/remotes/upstream/master"
+                    } else if (params.remote == "xilinx") {
+                        branch = "refs/tags/xilinx-v${params.release}"
+                    }
+                    echo "Building branch " + branch
+                    dir("work/linux") {
+                        checkout(
+                            changelog: true,
+                            poll: true,
+                            scm: [
+                                $class: 'GitSCM',
+                                branches: [[name: branch]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [ $class: 'CleanCheckout'],
+                                    [ $class: 'CheckoutOption',
+                                        timeout: 30
+                                    ],
+                                    [ $class: 'CloneOption',
+                                        honorRefspec: true,
+                                    ]
+                                ],
+                                submoduleCfg: [],
+                                userRemoteConfigs: [
+                                    [
+                                        name: "upstream",
+                                        url: 'https://github.com/torvalds/linux.git'
+                                    ],
+                                    [
+                                        name: "xilinx",
+                                        url: 'https://github.com/Xilinx/linux-xlnx.git'
+                                    ],
+                                ]
+                            ]
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                script {
+                    env.PATH = "/opt/toolchains/arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-linux-gnu/bin:" + env.PATH
+                    env.DEVICE_TREE = "zynqmp-zcu102-revA"
+                    env.CROSS_COMPILE = "aarch64-none-linux-gnu-"
+                    env.ARCH = "arm64"
+                    if (params.remote == "upstream") {
+                        env.DEFCONFIG = "defconfig"
+                    } else if (params.remote == "xilinx") {
+                        env.DEFCONFIG = "xilinx_zynqmp_virt_defconfig"
+                    } else {
+                        env.DEFCONFIG = "defconfig"
+                    }
+
+                    dir("work/linux") {
+                        sh '''
+                            make mrproper
+                            make "${DEFCONFIG}"
+                            make -j"$(nproc)" dtbs Image modules
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            dir('work/linux/arch/arm64/boot') {
+                archiveArtifacts artifacts: 'Image, dts/xilinx/zynqmp*.dtb*', fingerprint: true
+            }
+        }
+    }
+}
