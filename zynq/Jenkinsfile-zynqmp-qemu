@@ -1,0 +1,163 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '2',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    parameters {
+        string(
+            name: 'board',
+            defaultValue: 'zcu102',
+            description: 'Zynqmp board'
+        )
+        string(
+            name: 'revision',
+            defaultValue: 'revB',
+            description: 'Zynqmp board revision'
+        )
+    }
+
+    triggers {
+        upstream(
+           upstreamProjects: 'zynqmp-pmufw, zynqmp-atf, zynqmp-uboot, zynqmp-linux, zynqmp-qemu-devicetrees, zynqmp-buildroot'
+        )
+    }
+
+    stages {
+        stage('images') {
+            steps {
+                script {
+                    def hw_arm_dtbs = "MULTI_ARCH/${params.board}-arm*.dtb"
+                    def hw_pmu_dtb = "MULTI_ARCH/zynqmp-pmu.dtb"
+                    def hw_dtbs = "${hw_arm_dtbs}, ${hw_pmu_dtb}"
+                    def linux_dtb= "zynqmp-${params.board}-${params.revision}.dtb"
+
+                    sh(script: 'rm -Rf work/images; mkdir -p work/images')
+
+                    copyArtifacts(
+                        projectName: 'zynqmp-pmufw',
+                        filter: "**/pmufw.elf",
+                        target: "work/images",
+                        flatten: true,
+                    )
+
+                    copyArtifacts(
+                        projectName: 'zynqmp-atf',
+                        filter: "**/bl31.elf",
+                        target: "work/images",
+                        flatten: true,
+                    )
+
+                    copyArtifacts(
+                        projectName: 'zynqmp-uboot',
+                        filter: "**/u-boot.bin",
+                        target: "work/images",
+                        flatten: true,
+                    )
+
+                    copyArtifacts(
+                        projectName: 'zynqmp-linux',
+                        filter: "**/Image, **/${linux_dtb}",
+                        target: "work/images",
+                        flatten: true,
+                    )
+
+                    copyArtifacts(
+                        projectName: 'zynqmp-qemu-devicetrees',
+                        filter: "${hw_dtbs}",
+                        target: "work/images",
+                        flatten: true,
+                    )
+                    copyArtifacts(
+                        projectName: 'zynqmp-buildroot',
+                        filter: "**/rootfs.ext2",
+                        target: "work/images",
+                        flatten: true,
+                    )
+
+                    sh(script: "cp zynq/files/pmu_rom_qemu_sha3.elf work/images")
+                    sh(script: "cp zynq/files/qemu-boot work/images")
+
+                    dir("work/images") {
+                        sh(script: "ln -s ${linux_dtb} system.dtb")
+                        prependToFile(
+                            file: "genimage.cfg",
+                            content: '''
+image boot.vfat {
+    vfat {
+        files = {
+            "system.dtb",
+            "Image"
+        }
+
+        file extlinux/extlinux.conf {
+            image = extlinux.conf
+        }
+    }
+
+    size = 64M
+}
+
+image sdcard.img {
+    hdimage {
+    }
+
+    partition boot {
+        partition-type = 0xC
+        bootable = "true"
+        image = "boot.vfat"
+    }
+
+    partition rootfs {
+        partition-type = 0x83
+        image = "rootfs.ext2"
+    }
+}
+'''
+                        )
+                        prependToFile(
+                            file: "extlinux.conf",
+                            content: '''
+label linux
+kernel /Image
+devicetree /system.dtb
+append console=ttyPS0,115200 root=/dev/mmcblk0p2 rw rootwait
+'''
+                        )
+                    sh '''
+                        ROOTPATH_TMP="$(mktemp -d)"
+                        BINARIES_DIR="$(pwd)"
+                        GENIMAGE_TMP="$(mktemp -d)"
+                        GENIMAGE_CFG="$(pwd)"/genimage.cfg
+
+                        genimage \
+                            --rootpath "${ROOTPATH_TMP}"     \
+                            --tmppath "${GENIMAGE_TMP}"    \
+                            --inputpath "${BINARIES_DIR}"  \
+                            --outputpath "${BINARIES_DIR}" \
+                            --config "${GENIMAGE_CFG}"
+
+                        ls
+                    '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            dir('work/images') {
+                archiveArtifacts artifacts: '*', fingerprint: true
+            }
+        }
+    }
+}

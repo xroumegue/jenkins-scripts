@@ -1,0 +1,120 @@
+#!/bin/bash
+#
+set -x
+
+function cleanup()
+{
+    echo "Cleaning the place"
+    jobs -r -l
+    true
+}
+
+trap cleanup EXIT
+trap cleanup SIGINT
+
+function fatal()
+{
+    echo "$@"
+    exit 1
+}
+
+BOARD=zcu102
+
+ROOTDIR=$(realpath "$(dirname "$(realpath "$0")")")
+COSIM_DEMO_DIR=${ROOTDIR}/systemctlm-cosim-demo
+MPATH_DIR=/tmp/qemu-shm
+
+IMAGES=$(pwd)/images
+
+PMU_HW_DTB=${IMAGES}/zynqmp-pmu.dtb
+ARM_HW_DTB=${IMAGES}/${BOARD}-arm.dtb
+
+PMU_ROM=${IMAGES}/pmu_rom_qemu_sha3.elf
+PMU_FW=${IMAGES}/pmufw.elf
+ATF=${IMAGES}/bl31.elf
+UBOOT=${IMAGES}/u-boot.bin
+WIC=${IMAGES}/sdcard.img
+
+qemu-img resize "${WIC}" 256M
+
+
+OPTS=""
+GDB="-s"
+ICOUNT=1
+QUANTUM="1000000"
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --cosim|-c)
+        ARM_HW_DTB=${IMAGES}/${BOARD}-arm.cosim.dtb
+        [[ -n "$2" && "$2" != -* ]] && QUANTUM="$2" && shift
+        OPTS="${OPTS} -sync-quantum $QUANTUM"
+        shift
+
+        [ -d "${COSIM_DEMO_DIR}" ] || fatal "The TLM cosim project folder must exist"
+        [ -e "${COSIM_DEMO_DIR}"/zynqmp_demo  ] || fatal "The TLM cosim executable must exist"
+
+        rm -Rf "${MPATH_DIR}"
+        mkdir -p "${MPATH_DIR}"
+        SOCKET=${MPATH_DIR}/qemu-rport-_amba@0_cosim@0
+        "${COSIM_DEMO_DIR}"/zynqmp_demo unix:"${SOCKET}" "${QUANTUM}" &
+        sleep 3
+        ;;
+    --icount|-i)
+        [[ -n "$2" && "$2" != -* ]] && ICOUNT="$2" && shift
+        OPTS="${OPTS} -icount $ICOUNT"
+        shift
+        ;;
+    --gdb|-g)
+        [[ -n "$2" && "$2" != -* ]] && GDB="-gdb $2" && shift
+        OPTS="${OPTS} $GDB"
+        shift
+        ;;
+    -S)
+        OPTS="${OPTS} -S"
+        shift
+        ;;
+    *)
+        echo "Usage: qemu-boot [--icount|-i [<icount>]] [--cosim|-c [<quantum>]] [--netdev|-n <dev>] [--gdb|-g [<dev>]] [-S]"
+        exit 1
+        ;;
+  esac
+done
+
+mkdir -p ${MPATH_DIR}
+
+# Launch MicroBlaze PMU instance in background
+qemu-system-microblazeel \
+    -M microblaze-fdt \
+    -serial mon:stdio \
+    -serial /dev/null \
+    -display none \
+    -kernel "${PMU_ROM}" \
+    -device loader,file="${PMU_FW}" \
+    -hw-dtb "${PMU_HW_DTB}" \
+    -machine-path "${MPATH_DIR}" \
+    -device loader,addr=0xfd1a0074,data=0x1011003,data-len=4 \
+    -device loader,addr=0xfd1a007C,data=0x1010f03,data-len=4 &
+
+# Launch ARM instance
+exec qemu-system-aarch64 \
+    -M arm-generic-fdt \
+    -serial mon:stdio \
+    -serial /dev/null \
+    -display none \
+    -device loader,file="${ATF}",cpu-num=0 \
+    -device loader,file="${UBOOT}",addr=0x10080000,force-raw=on  \
+    -drive if=sd,index=1,file="${WIC}",format=raw  \
+    -net nic \
+    -boot mode=5 \
+    -net nic \
+    -net nic \
+    -net nic,netdev=eth0 \
+    -netdev user,id=eth0,tftp="${IMAGES}" \
+    -hw-dtb "${ARM_HW_DTB}" \
+    -machine-path "${MPATH_DIR}" \
+    -global xlnx,zynqmp-boot.cpu-num=0 \
+    -global xlnx,zynqmp-boot.use-pmufw=true \
+    -m 4G \
+    ${OPTS}
+
