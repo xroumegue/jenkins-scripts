@@ -1,0 +1,109 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    parameters {
+        choice choices: ['upstream', 'xilinx'], description: 'Git remote', name: 'remote'
+        string defaultValue: '2022.2', description: 'Xilinx Release YYYY.X', name: 'release'
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+            steps {
+                script {
+                    def branch = "refs/remotes/upstream/master"
+                    if (params.remote == "upstream") {
+                        branch = "refs/remotes/upstream/master"
+                    } else if (params.remote == "xilinx") {
+                        branch = "refs/tags/xilinx-v${params.release}"
+                    }
+                    echo "Building branch " + branch
+                    dir("work/u-boot") {
+                        checkout(
+                            changelog: true,
+                            poll: true,
+                            scm: [
+                                $class: 'GitSCM',
+                                branches: [[name: branch]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [ $class: 'CleanCheckout'],
+                                    [ $class: 'CheckoutOption',
+                                        timeout: 30
+                                    ],
+                                    [ $class: 'CloneOption',
+                                        honorRefspec: true,
+                                    ]
+                                ],
+                                submoduleCfg: [],
+                                userRemoteConfigs: [
+                                    [
+                                        name: "upstream",
+                                        url: 'https://source.denx.de/u-boot/u-boot.git'
+                                    ],
+                                    [
+                                        name: "xilinx",
+                                        url: 'https://github.com/Xilinx/u-boot-xlnx.git'
+                                    ],
+                                ]
+                            ]
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                script {
+                    env.PATH = "/opt/toolchains/arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-linux-gnu/bin:" + env.PATH
+                    env.DEVICE_TREE = "zynqmp-zcu102-revA"
+                    env.CROSS_COMPILE = "aarch64-none-linux-gnu-"
+                    env.ARCH = "arm"
+
+                    dir("work/u-boot") {
+                        sh '''
+                            make mrproper
+                            make xilinx_zynqmp_virt_defconfig
+
+                            sed -i -e '/CONFIG_TEXT_BASE/d' .config
+                            echo CONFIG_TEXT_BASE=0x10080000 >> .config
+
+                            #sed -i \
+                            #   -e '/CONFIG_PMUFW_INIT_FILE/d' \
+                            #   -e '/CONFIG_ZYNQMP_SPL_PM_CFG_OBJ_FILE/d' \
+                            #   .config
+                            #
+                            #export BL31=${images_dir}/bl31.bin
+                            ##tools/zynqmp_pm_cfg_obj_convert.py
+                            #echo CONFIG_PMUFW_INIT_FILE=\"${images_dir}/pmufw.bin\" >> .config
+                            #echo CONFIG_ZYNQMP_SPL_PM_CFG_OBJ_FILE=\"${images_dir}/pmu_obj.bin\" >> .config
+
+                            make -j"$(nproc)"
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            dir('work/u-boot/') {
+                archiveArtifacts artifacts: 'u-boot.elf, u-boot.bin, spl/u-boot-spl, spl/u-boot-spl.bin, spl/boot.bin', fingerprint: true
+            }
+        }
+    }
+}
