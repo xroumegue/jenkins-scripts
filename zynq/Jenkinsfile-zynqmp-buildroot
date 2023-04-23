@@ -1,0 +1,78 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('30 */12 * * *') }
+
+    stages {
+        stage('sources') {
+            steps {
+                script {
+                    dir("work/buildroot") {
+                        def branch="refs/remotes/upstream/master"
+                        checkout(
+                            changelog: true,
+                            poll: true,
+                            scm: [
+                                $class: 'GitSCM',
+                                branches: [[name: branch]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [ $class: 'CleanCheckout'],
+                                    [ $class: 'CheckoutOption',
+                                        timeout: 30
+                                    ],
+                                    [ $class: 'CloneOption',
+                                        honorRefspec: true,
+                                    ]
+                                ],
+                                submoduleCfg: [],
+                                userRemoteConfigs: [
+                                    [
+                                        name: "upstream",
+                                        url: 'https://git.buildroot.net/buildroot.git'
+                                    ],
+                                ]
+                            ]
+                        )
+                    }
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                script {
+                    defconfig="zynqmp_qemu_zcu102_defconfig"
+                    env.DEFCONFIG=defconfig
+                    dir("work/buildroot") {
+                        sh '''
+                            cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
+                            cp ${WORKSPACE}/zynq/linux-xilinx_zynqmp_defconfig board/zynqmp/xilinx_zynqmp_defconfig
+                            make "${DEFCONFIG}"
+                            make
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            dir('work/buildroot/output/images') {
+                archiveArtifacts artifacts: '*', fingerprint: true
+            }
+        }
+    }
+}
