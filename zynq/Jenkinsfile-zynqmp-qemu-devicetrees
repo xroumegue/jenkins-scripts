@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(
+                logRotator(
+                    artifactNumToKeepStr: '10',
+                    numToKeepStr: '10'
+                )
+            )
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('H/15 * * * *') }
+
+    stages {
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: "refs/remotes/origin/master"]],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'qemu-devicetrees'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [name: 'origin', url: 'https://github.com/Xilinx/qemu-devicetrees.git']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+       stage('dtbs') {
+            steps {
+                script {
+                    dir("work/qemu-devicetrees") {
+                        sh(script: 'make')
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            dir('work/qemu-devicetrees/LATEST') {
+                archiveArtifacts artifacts: '**/*.dtb', fingerprint: true
+            }
+        }
+    }
+}
