@@ -68,6 +68,7 @@ pipeline {
                         cd build
                         ../configure \
                             ../qemu/configure --target-list=aarch64-softmmu,microblazeel-softmmu,riscv64-softmmu \
+                            --extra-cflags='-Wno-error=dangling-pointer -Wno-error=deprecated-declarations -Wno-error=enum-int-mismatch -Wno-error=maybe-uninitialized' \
                             --enable-fdt \
                             --disable-kvm \
                             --disable-xen \
