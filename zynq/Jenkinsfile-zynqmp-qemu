@@ -27,7 +27,7 @@ pipeline {
 
     triggers {
         upstream(
-           upstreamProjects: 'zynqmp-pmufw, zynqmp-atf, zynqmp-uboot, zynqmp-linux, zynqmp-qemu-devicetrees, zynqmp-buildroot'
+           upstreamProjects: 'zynqmp-pmufw, zynqmp-atf, zynqmp-uboot, zynqmp-qemu-devicetrees, zynqmp-buildroot'
         )
     }
 
@@ -64,13 +64,6 @@ pipeline {
                     )
 
                     copyArtifacts(
-                        projectName: 'zynqmp-linux',
-                        filter: "**/Image, **/${linux_dtb}",
-                        target: "work/images",
-                        flatten: true,
-                    )
-
-                    copyArtifacts(
                         projectName: 'zynqmp-qemu-devicetrees',
                         filter: "${hw_dtbs}",
                         target: "work/images",
@@ -78,7 +71,7 @@ pipeline {
                     )
                     copyArtifacts(
                         projectName: 'zynqmp-buildroot',
-                        filter: "**/rootfs.ext2",
+                        filter: "**/rootfs.ext2, **/Image, **/${linux_dtb}",
                         target: "work/images",
                         flatten: true,
                     )
