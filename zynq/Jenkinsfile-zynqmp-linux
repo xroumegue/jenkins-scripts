@@ -85,6 +85,8 @@ pipeline {
                             make mrproper
                             make "${DEFCONFIG}"
                             make -j"$(nproc)" dtbs Image modules
+                            make modules_install INSTALL_MOD_PATH=_modules
+                            tar -C _modules -cjvf modules.tar.bz2 .
                         '''
                     }
                 }
@@ -96,6 +98,9 @@ pipeline {
         success {
             dir('work/linux/arch/arm64/boot') {
                 archiveArtifacts artifacts: 'Image, dts/xilinx/zynqmp*.dtb*', fingerprint: true
+            }
+            dir('work/linux') {
+                archiveArtifacts artifacts: 'modules.tar.bz2', fingerprint: true
             }
         }
     }
