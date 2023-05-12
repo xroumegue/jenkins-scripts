@@ -20,7 +20,7 @@ pipeline {
         )
         string(
             name: 'revision',
-            defaultValue: 'revB',
+            defaultValue: 'revA',
             description: 'Zynqmp board revision'
         )
     }
