@@ -21,7 +21,7 @@ function fatal()
 BOARD=zcu102
 
 ROOTDIR=$(realpath "$(dirname "$(realpath "$0")")")
-COSIM_DEMO_DIR=${ROOTDIR}/systemctlm-cosim-demo
+COSIM_EXE=${ROOTDIR}/systemctlm-cosim-demo/zynqmp_demo
 MPATH_DIR=/tmp/qemu-shm
 
 IMAGES=$(pwd)/images
@@ -42,6 +42,7 @@ OPTS=""
 GDB="-s"
 ICOUNT=1
 QUANTUM="1000000"
+NETDEV=eno1
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -51,13 +52,12 @@ while [[ "$#" -gt 0 ]]; do
         OPTS="${OPTS} -sync-quantum $QUANTUM"
         shift
 
-        [ -d "${COSIM_DEMO_DIR}" ] || fatal "The TLM cosim project folder must exist"
-        [ -e "${COSIM_DEMO_DIR}"/zynqmp_demo  ] || fatal "The TLM cosim executable must exist"
+        [ -e "${COSIM_EXE}"  ] || fatal "The TLM cosim executable must exist"
 
         rm -Rf "${MPATH_DIR}"
         mkdir -p "${MPATH_DIR}"
         SOCKET=${MPATH_DIR}/qemu-rport-_amba@0_cosim@0
-        "${COSIM_DEMO_DIR}"/zynqmp_demo unix:"${SOCKET}" "${QUANTUM}" &
+        "${COSIM_EXE}" unix:"${SOCKET}" "${QUANTUM}" &
         sleep 3
         ;;
     --icount|-i)
@@ -68,6 +68,10 @@ while [[ "$#" -gt 0 ]]; do
     --gdb|-g)
         [[ -n "$2" && "$2" != -* ]] && GDB="-gdb $2" && shift
         OPTS="${OPTS} $GDB"
+        shift
+        ;;
+    --netdev|-n)
+        [[ -n "$2" && "$2" != -* ]] && NETDEV="$2" && shift
         shift
         ;;
     -S)
@@ -105,12 +109,12 @@ exec qemu-system-aarch64 \
     -device loader,file="${ATF}",cpu-num=0 \
     -device loader,file="${UBOOT}",addr=0x10080000,force-raw=on  \
     -drive if=sd,index=1,file="${WIC}",format=raw  \
-    -net nic \
     -boot mode=5 \
-    -net nic \
-    -net nic \
-    -net nic,netdev=eth0 \
-    -netdev user,id=eth0,tftp="${IMAGES}" \
+    -net nic,model=cadence_gem \
+    -net nic,model=cadence_gem \
+    -net nic,model=cadence_gem \
+    -net nic,model=cadence_gem,netdev=${NETDEV} \
+    -netdev user,id=${NETDEV},tftp="${IMAGES}" \
     -hw-dtb "${ARM_HW_DTB}" \
     -machine-path "${MPATH_DIR}" \
     -global xlnx,zynqmp-boot.cpu-num=0 \
