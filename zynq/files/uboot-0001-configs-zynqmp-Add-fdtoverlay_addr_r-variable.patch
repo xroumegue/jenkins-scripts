@@ -1,0 +1,25 @@
+From c3a24212ce68948f9d24a01c47ba8d0daf2141c0 Mon Sep 17 00:00:00 2001
+From: Xavier Roumegue <xavier.roumegue@oss.nxp.com>
+Date: Fri, 12 May 2023 17:39:34 +0200
+Subject: [PATCH] configs: zynqmp: Add fdtoverlay_addr_r variable
+
+Signed-off-by: Xavier Roumegue <xavier.roumegue@oss.nxp.com>
+---
+ include/configs/xilinx_zynqmp.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/include/configs/xilinx_zynqmp.h b/include/configs/xilinx_zynqmp.h
+index 011f0034c50..eec6248618f 100644
+--- a/include/configs/xilinx_zynqmp.h
++++ b/include/configs/xilinx_zynqmp.h
+@@ -51,6 +51,7 @@
+ 
+ #define ENV_MEM_LAYOUT_SETTINGS \
+ 	"fdt_addr_r=0x40000000\0" \
++	"fdtoverlay_addr_r=0x40400000\0" \
+ 	"fdt_size_r=0x400000\0" \
+ 	"pxefile_addr_r=0x10000000\0" \
+ 	"kernel_addr_r=0x18000000\0" \
+-- 
+2.40.1
+

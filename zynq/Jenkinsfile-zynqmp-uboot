@@ -72,9 +72,15 @@ pipeline {
                     env.DEVICE_TREE = "zynqmp-zcu102-revA"
                     env.CROSS_COMPILE = "aarch64-none-linux-gnu-"
                     env.ARCH = "arm"
+                    if (params.remote == "upstream") {
+                        env.PATCH = "0001-configs-zynqmp-Add-fdtoverlay_addr_r-variable.patch"
+                    }
 
                     dir("work/u-boot") {
                         sh '''
+                            if [ -n "${PATCH}" ]; then
+                                git am ${WORKSPACE}/zynq/files/uboot-${PATCH}
+                            fi
                             make mrproper
                             make xilinx_zynqmp_virt_defconfig
 
