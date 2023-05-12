@@ -78,6 +78,7 @@ pipeline {
 
                     sh(script: "cp zynq/files/pmu_rom_qemu_sha3.elf work/images")
                     sh(script: "cp zynq/files/qemu-boot work/images")
+                    sh(script: "mkdir work/images/pxelinux.cfg;cp zynq/files/pxelinux.cfg-default-arm-zynqmp-zynqmp work/images/pxelinux.cfg/default-arm-zynqmp-zynqmp")
 
                     dir("work/images") {
                         sh(script: "ln -s ${linux_dtb} system.dtb")
