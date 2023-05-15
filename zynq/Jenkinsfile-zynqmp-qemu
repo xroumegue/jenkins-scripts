@@ -71,7 +71,7 @@ pipeline {
                     )
                     copyArtifacts(
                         projectName: 'zynqmp-buildroot',
-                        filter: "**/rootfs.ext2, **/Image, **/${linux_dtb}",
+                        filter: "**/rootfs.ext2, **/rootfs.tar.bz2, **/Image, **/${linux_dtb}",
                         target: "work/images",
                         flatten: true,
                     )
