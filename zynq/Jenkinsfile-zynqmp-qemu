@@ -150,7 +150,7 @@ append console=ttyPS0,115200 root=/dev/mmcblk0p2 rw rootwait
     post {
         success {
             dir('work/images') {
-                archiveArtifacts artifacts: '*', fingerprint: true
+                archiveArtifacts artifacts: '*, **/*', fingerprint: true
             }
         }
     }
