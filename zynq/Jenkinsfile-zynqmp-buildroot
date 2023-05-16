@@ -61,6 +61,7 @@ pipeline {
                             cp ${WORKSPACE}/zynq/linux-xilinx_zynqmp_defconfig board/zynqmp/xilinx_zynqmp_defconfig
                             make "${DEFCONFIG}"
                             make
+                            make sdk
                         '''
                     }
                 }
