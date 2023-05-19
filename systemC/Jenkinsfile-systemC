@@ -84,6 +84,7 @@ pipeline {
                                     cmake \
                                         -DCMAKE_CXX_STANDARD=${CXX_VERSION#cpp} \
                                         -DBUILD_SOURCE_DOCUMENTATION=1 \
+                                        -DENABLE_PHASE_CALLBACKS_TRACING=OFF \
                                         -DCMAKE_INSTALL_PREFIX=${sc_prefix} ..
 
                                     make clean
