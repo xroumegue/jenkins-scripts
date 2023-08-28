@@ -233,7 +233,7 @@ pipeline {
             steps {
                 dir("work") {
                     sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
-                    sh '''cp ${WORKSPACE}/helpers/etc/env-default-4.1.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
+                    sh '''cp ${WORKSPACE}/helpers/etc/env-default-4.2.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
                     sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force setup'''
                 }
             }
