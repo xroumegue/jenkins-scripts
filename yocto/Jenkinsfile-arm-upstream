@@ -79,7 +79,7 @@ pipeline {
                         ],
                         submoduleCfg: [],
                         userRemoteConfigs: [
-                            [url: 'git@github.com:xroumegue/build-helpers-config.git']
+                            [url: 'https://github.com/xroumegue/build-helpers-config.git']
                         ]
                     ]
                 )
