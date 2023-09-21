@@ -63,7 +63,7 @@ pipeline {
             steps {
                 script {
                     def sc_versions = ['2.3.4']
-                    def std_cxx_versions = ['cpp11', 'cpp14', 'cpp17']
+                    def std_cxx_versions = ['cpp14', 'cpp17']
 
                     sh(script: 'rm -Rf work/archives; mkdir -p work/archives')
                     sh(script: 'rm -Rf work/systemC; mkdir -p work/systemC')
