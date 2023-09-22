@@ -6,7 +6,7 @@ pipeline {
         quietPeriod 600
     }
 
-    triggers{ pollSCM('H/15 * * * *') }
+    triggers{ pollSCM('H/15 19-23,0-7 * * *') }
 
     stages {
         stage('Build-helpers') {
