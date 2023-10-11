@@ -1,0 +1,162 @@
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        quietPeriod 600
+    }
+
+    triggers{ pollSCM('H/15 19-23,0-7 * * *') }
+
+    stages {
+        stage('Build-helpers') {
+            steps {
+                checkout(
+                    changelog: true,
+                    poll: true,
+                    scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'main']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'SubmoduleOption',
+                                disableSubmodules: false,
+                                parentCredentials: false,
+                                recursiveSubmodules: true,
+                                reference: '',
+                                trackingSubmodules: false
+                            ],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'helpers'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/xroumegue/build-helpers.git']
+                        ]
+                    ]
+                )
+                checkout(
+                    changelog: true,
+                    poll: true,
+                    scm: [
+                        $class: 'GitSCM',
+                        branches: [[name: 'staging']],
+                        doGenerateSubmoduleConfigurations: false,
+                        extensions: [
+                            [ $class: 'CleanCheckout'],
+                            [ $class: 'SubmoduleOption',
+                                disableSubmodules: false,
+                                parentCredentials: false,
+                                recursiveSubmodules: true,
+                                reference: '',
+                                trackingSubmodules: false
+                            ],
+                            [ $class: 'RelativeTargetDirectory',
+                                relativeTargetDir: 'helpers-config'
+                            ],
+                            [ $class: 'CheckoutOption',
+                                timeout: 30
+                            ],
+                            [ $class: 'CloneOption',
+                                depth: 0,
+                                noTags: false,
+                                reference: '',
+                                shallow: false,
+                                timeout: 45,
+                            ]
+                        ],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [
+                            [url: 'https://github.com/xroumegue/build-helpers-config.git']
+                        ]
+                    ]
+                )
+            }
+        }
+
+        stage('sources') {
+                steps {
+                    dir("work") {
+                    checkout(
+                        changelog: true,
+                        poll: true,
+                        scm: [
+                            $class: 'GitSCM',
+                            branches: [[name: 'petalinux']],
+                            doGenerateSubmoduleConfigurations: false,
+                            extensions: [
+                                [ $class: 'CleanCheckout'],
+                                [ $class: 'RelativeTargetDirectory',
+                                    relativeTargetDir: 'meta-staging'
+                                ],
+                                [ $class: 'CheckoutOption',
+                                    timeout: 30
+                                ],
+                                [ $class: 'CloneOption',
+                                    depth: 0,
+                                    noTags: false,
+                                    reference: '',
+                                    shallow: false,
+                                    timeout: 45,
+                                ]
+                            ],
+                            submoduleCfg: [],
+                            userRemoteConfigs: [
+                                [url: 'https://github.com/xroumegue/meta-staging']
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        stage("changes") {
+            steps {
+                dir("helpers") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+                dir("work/meta-staging") {
+                    lastChanges since: 'LAST_SUCCESSFUL_BUILD', format:'SIDE',matching: 'LINE'
+                }
+            }
+        }
+
+        stage('Setup') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
+                    sh '''cp ${WORKSPACE}/helpers/etc/env-default-petalinux.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force setup'''
+                }
+            }
+        }
+
+        stage('build') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh build'''
+                }
+            }
+        }
+
+        stage('sdk') {
+            steps {
+                dir("work") {
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh sdk'''
+                }
+            }
+        }
+    }
+}
