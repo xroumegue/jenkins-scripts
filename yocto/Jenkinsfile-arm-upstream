@@ -2,6 +2,15 @@ pipeline {
     agent any
 
     options {
+        buildDiscarder(
+            logRotator(
+                artifactDaysToKeepStr: '7',
+                artifactNumToKeepStr: '3',
+                daysToKeepStr: '14',
+                numToKeepStr: '30'
+            )
+        )
+
         disableConcurrentBuilds()
         quietPeriod 600
     }
