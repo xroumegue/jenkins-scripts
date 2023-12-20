@@ -17,6 +17,25 @@ pipeline {
 
     triggers{ pollSCM('H/15 19-23,0-7 * * *') }
 
+    parameters {
+        choice(
+            name: 'DISTRO_CUSTOMIZATION',
+            choices: [ 'full', 'cosim'],
+            description: 'Yocto Distro customization'
+        )
+        choice(
+            name: 'DISTRO_IMAGE',
+            choices: [
+                'core-image-base',
+                'core-image-full-cmdline',
+                'core-image-minimal',
+                'core-image-weston',
+                'core-image-x11'
+            ],
+            description: 'Yocto Distro image'
+        )
+    }
+
     stages {
         stage('Build-helpers') {
             steps {
@@ -243,7 +262,7 @@ pipeline {
                 dir("work") {
                     sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
                     sh '''cp ${WORKSPACE}/helpers/etc/env-default-4.2.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
-                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force setup'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --force --customization ${DISTRO_CUSTOMIZATION} --image ${DISTRO_IMAGE} setup'''
                 }
             }
         }
@@ -251,7 +270,7 @@ pipeline {
         stage('build') {
             steps {
                 dir("work") {
-                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh build'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --customization ${DISTRO_CUSTOMIZATION} --image ${DISTRO_IMAGE} build'''
                 }
             }
         }
@@ -259,7 +278,7 @@ pipeline {
         stage('sdk') {
             steps {
                 dir("work") {
-                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh sdk'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --customization ${DISTRO_CUSTOMIZATION} --image ${DISTRO_IMAGE} sdk'''
                 }
             }
         }
