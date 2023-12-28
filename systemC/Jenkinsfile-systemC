@@ -64,7 +64,7 @@ pipeline {
             steps {
                 script {
                     def sc_versions = [params.SC_VERSION]
-                    def std_cxx_versions = ['cpp11', 'cpp14', 'cpp17']
+                    def std_cxx_versions = ['cpp11', 'cpp14', 'cpp17', 'cpp20']
 
                     sh(script: 'rm -Rf work/archives; mkdir -p work/archives')
                     for (String sc_version: sc_versions) {
