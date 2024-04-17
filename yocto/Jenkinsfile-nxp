@@ -91,7 +91,7 @@ pipeline {
                 dir("work") {
                     sh '''${WORKSPACE}/helpers/bin/install-configs.sh ${WORKSPACE}/helpers-config'''
                     sh '''cp ${WORKSPACE}/helpers/etc/env-default-bsp.sh ${WORKSPACE}/helpers/etc/env-default.sh'''
-                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --update setup'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --buildenv bsp --update setup'''
                 }
             }
         }
@@ -102,8 +102,8 @@ pipeline {
                     script {
                         def machines = ['imx8mpevk', 'imx93evk' , 'imx95-19x19-lpddr5-evk']
                         for (int i = 0; i < machines.size(); i++) {
-                            sh "${WORKSPACE}/helpers/yocto/yocto-build.sh --machine ${machines[i]} --force setup"
-                            sh "${WORKSPACE}/helpers/yocto/yocto-build.sh build"
+                            sh "${WORKSPACE}/helpers/yocto/yocto-build.sh --buildenv bsp --machine ${machines[i]} --force setup"
+                            sh "${WORKSPACE}/helpers/yocto/yocto-build.sh --buildenv bsp build"
                         }
                     }
                 }
@@ -113,7 +113,7 @@ pipeline {
         stage('sdk') {
             steps {
                 dir("work") {
-                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh sdk'''
+                    sh '''${WORKSPACE}/helpers/yocto/yocto-build.sh --buildenv bsp sdk'''
                 }
             }
         }
