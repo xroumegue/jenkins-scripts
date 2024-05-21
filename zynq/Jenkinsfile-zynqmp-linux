@@ -13,8 +13,8 @@ pipeline {
     }
 
     parameters {
-        choice choices: ['upstream', 'xilinx'], description: 'Git remote', name: 'remote'
-        string defaultValue: '2022.2', description: 'Xilinx Release YYYY.X', name: 'release'
+        choice choices: ['xilinx', 'upstream'], description: 'Git remote', name: 'remote'
+        string defaultValue: '2023.2', description: 'Xilinx Release YYYY.X', name: 'release'
     }
 
     triggers{ pollSCM('H/15 * * * *') }
@@ -75,7 +75,7 @@ pipeline {
                     if (params.remote == "upstream") {
                         env.DEFCONFIG = "defconfig"
                     } else if (params.remote == "xilinx") {
-                        env.DEFCONFIG = "xilinx_zynqmp_virt_defconfig"
+                        env.DEFCONFIG = "xilinx_zynqmp_defconfig"
                     } else {
                         env.DEFCONFIG = "defconfig"
                     }
