@@ -27,7 +27,7 @@ pipeline {
 
     triggers {
         upstream(
-           upstreamProjects: 'zynqmp-pmufw, zynqmp-atf, zynqmp-uboot, zynqmp-qemu-devicetrees, zynqmp-buildroot'
+           upstreamProjects: 'zynqmp-pmufw, zynqmp-atf, zynqmp-uboot, zynqmp-qemu-devicetrees, zynqmp-buildroot, zynqmp-linux'
         )
     }
 
@@ -75,6 +75,13 @@ pipeline {
                         target: "work/images",
                         flatten: true,
                     )
+                    copyArtifacts(
+                        projectName: 'zynqmp-linux',
+                        filter: "**/Image, **/modules.tar.bz2, **/${linux_dtb}",
+                        target: "work/images",
+                        flatten: true,
+                    )
+
 
                     sh(script: "cp zynq/files/pmu_rom_qemu_sha3.elf work/images")
                     sh(script: "cp zynq/files/qemu-boot work/images")
