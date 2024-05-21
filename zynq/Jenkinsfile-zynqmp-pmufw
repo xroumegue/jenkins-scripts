@@ -5,8 +5,8 @@ pipeline {
         disableConcurrentBuilds()
         buildDiscarder(
                 logRotator(
-                    artifactNumToKeepStr: '10',
-                    numToKeepStr: '10'
+                    artifactNumToKeepStr: '50',
+                    numToKeepStr: '100'
                 )
             )
         quietPeriod 600
