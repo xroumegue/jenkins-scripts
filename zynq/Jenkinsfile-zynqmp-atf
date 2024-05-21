@@ -69,7 +69,7 @@ pipeline {
                     dir("work/atf") {
                         sh '''
                             make CROSS_COMPILE=aarch64-none-elf- PLAT=zynqmp RESET_TO_BL31=1 clean
-                            make CROSS_COMPILE=aarch64-none-elf- PLAT=zynqmp RESET_TO_BL31=1 PRELOADED_BL33_BASE=0x10080000  bl31
+                            LDFLAGS=--no-warn-rwx-segments make CROSS_COMPILE=aarch64-none-elf- PLAT=zynqmp RESET_TO_BL31=1 PRELOADED_BL33_BASE=0x10080000  bl31
                         '''
                         }
                     }
