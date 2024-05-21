@@ -60,7 +60,7 @@ pipeline {
         stage('build') {
             steps {
                 script {
-                    env.PATH = "/opt/toolchains/arm-gnu-toolchain-11.3.rel1-x86_64-aarch64-none-elf/bin:" + env.PATH
+                    env.PATH = "/opt/toolchains/arm-gnu-toolchain-12.2.rel1-x86_64-aarch64-none-elf/bin:" + env.PATH
 
                     env.CROSS_COMPILE = "aarch64-none-elf-"
                     env.PLAT = "zynqmp"
