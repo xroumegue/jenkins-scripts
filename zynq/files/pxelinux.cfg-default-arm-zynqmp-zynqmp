@@ -1,21 +1,35 @@
 menu title Select the boot mode
 prompt 0
 timeout 100
-default sgm
+default npu
 label net
 	kernel Image
 	fdt zynqmp-zcu102-revA.dtb
-	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw earlyprintk console=ttyPS0,115200
+	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw console=ttyPS0,115200
 
 label sgm
 	kernel Image
 	fdt zynqmp-zcu102-revA.dtb
 	fdtoverlays sgm.dtbo
-	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw earlyprintk console=ttyPS0,115200
+	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw console=ttyPS0,115200
 
 label isi
 	kernel Image
 	fdt zynqmp-zcu102-revA.dtb
 	fdtoverlays isi.dtbo
-	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw earlyprintk console=ttyPS0,115200
+	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw console=ttyPS0,115200
+
+label isp
+	kernel Image
+	fdt zynqmp-zcu102-revA.dtb
+	fdtoverlays isp.dtbo
+	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw console=ttyPS0,115200 ignore_loglevel
+
+label npu
+	kernel Image
+	fdt zynqmp-zcu102-revA.dtb
+	fdtoverlays npu.dtbo
+	append root=/dev/nfs nfsroot=10.0.2.2:/srv/nfs/buildroot/zynqmp,tcp,v3,nolock ip=dhcp rw console=ttyPS0,115200 ignore_loglevel
+
+
 
