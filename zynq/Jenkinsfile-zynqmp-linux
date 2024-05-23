@@ -13,7 +13,7 @@ pipeline {
     }
 
     parameters {
-        choice choices: ['xilinx', 'upstream'], description: 'Git remote', name: 'remote'
+        choice choices: ['nxp', 'xilinx', 'upstream'], description: 'Git remote', name: 'remote'
         string defaultValue: '2023.2', description: 'Xilinx Release YYYY.X', name: 'release'
     }
 
@@ -23,8 +23,10 @@ pipeline {
         stage('sources') {
             steps {
                 script {
-                    def branch = "refs/remotes/upstream/master"
-                    if (params.remote == "upstream") {
+                    def branch = "refs/remotes/nxp/cosim"
+                    if (params.remote == "nxp") {
+                        branch = "refs/remotes/nxp/cosim"
+                    } else if (params.remote == "upstream") {
                         branch = "refs/remotes/upstream/master"
                     } else if (params.remote == "xilinx") {
                         branch = "refs/tags/xilinx-v${params.release}"
@@ -50,6 +52,10 @@ pipeline {
                                 submoduleCfg: [],
                                 userRemoteConfigs: [
                                     [
+                                        name: "nxp",
+                                        url: 'ssh://git@bitbucket.sw.nxp.com/imxswarch/linux-lts-nxp.git'
+                                    ],
+                                    [
                                         name: "upstream",
                                         url: 'https://github.com/torvalds/linux.git'
                                     ],
@@ -74,6 +80,8 @@ pipeline {
                     env.ARCH = "arm64"
                     if (params.remote == "upstream") {
                         env.DEFCONFIG = "defconfig"
+                    } else if (params.remote == "nxp") {
+                        env.DEFCONFIG = "xilinx_zynqmp_defconfig"
                     } else if (params.remote == "xilinx") {
                         env.DEFCONFIG = "xilinx_zynqmp_defconfig"
                     } else {
