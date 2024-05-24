@@ -84,6 +84,7 @@ pipeline {
                               cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
                             fi
                             cp ${WORKSPACE}/zynq/linux-xilinx_zynqmp_defconfig board/zynqmp/xilinx_zynqmp_defconfig
+                            make clean
                             make "${DEFCONFIG}"
                             make
                             make sdk
