@@ -12,14 +12,26 @@ pipeline {
         quietPeriod 600
     }
 
+    parameters {
+        choice choices: ['nxp', 'upstream'], description: 'Git remote', name: 'remote'
+    }
+
     triggers{ pollSCM('30 */12 * * *') }
 
     stages {
         stage('sources') {
             steps {
                 script {
+                    def branch = "refs/remotes/nxp/cosim"
+                    if (params.remote == "nxp") {
+                        branch = "refs/remotes/nxp/cosim"
+                    } else if (params.remote == "upstream") {
+                        branch = "refs/remotes/upstream/master"
+                    }
+
+                    echo "Building branch " + branch
+
                     dir("work/buildroot") {
-                        def branch="refs/remotes/upstream/master"
                         checkout(
                             changelog: true,
                             poll: true,
@@ -39,6 +51,10 @@ pipeline {
                                 submoduleCfg: [],
                                 userRemoteConfigs: [
                                     [
+                                        name: "nxp",
+                                        url: 'ssh://git@bitbucket.sw.nxp.com/imxswarch/buildroot.git'
+                                    ],
+                                    [
                                         name: "upstream",
                                         url: 'https://git.buildroot.net/buildroot.git'
                                     ],
@@ -53,11 +69,19 @@ pipeline {
         stage('build') {
             steps {
                 script {
-                    defconfig="zynqmp_qemu_zcu102_defconfig"
-                    env.DEFCONFIG=defconfig
+                    if (params.remote == "upstream") {
+                        env.DEFCONFIG = "zynqmp_qemu_zcu102_defconfig"
+                    } else if (params.remote == "nxp") {
+                        env.DEFCONFIG = "zynqmp_cosim_defconfig"
+                    } else {
+                        env.DEFCONFIG = "defconfig"
+                    }
                     dir("work/buildroot") {
                         sh '''
-                            cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
+                            defconfig_file=${WORKSPACE}/zynq/buildroot-${DEFCONFIG}
+                            if [ -e ${defconfig_file} ]; then
+                              cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
+                            fi
                             cp ${WORKSPACE}/zynq/linux-xilinx_zynqmp_defconfig board/zynqmp/xilinx_zynqmp_defconfig
                             make "${DEFCONFIG}"
                             make
