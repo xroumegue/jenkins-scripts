@@ -78,6 +78,7 @@ pipeline {
                     }
                     dir("work/buildroot") {
                         sh '''
+                            env > myenv-jenkins.txt
                             defconfig_file=${WORKSPACE}/zynq/buildroot-${DEFCONFIG}
                             if [ -e ${defconfig_file} ]; then
                               cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
