@@ -78,7 +78,9 @@ pipeline {
                     }
                     dir("work/buildroot") {
                         sh '''
-                            env > myenv-jenkins.txt
+                            export HOSTCC=/usr/lib64/ccache/gcc
+                            export HOSTCXX=/usr/lib64/ccache/g++
+                            env
                             defconfig_file=${WORKSPACE}/zynq/buildroot-${DEFCONFIG}
                             if [ -e ${defconfig_file} ]; then
                               cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
