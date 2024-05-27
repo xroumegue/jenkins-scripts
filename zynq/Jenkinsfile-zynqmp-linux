@@ -92,7 +92,7 @@ pipeline {
                         sh '''
                             make mrproper
                             make "${DEFCONFIG}"
-                            make -j"$(nproc)" dtbs Image modules
+                            make -j"$(nproc)" DTC_FLAGS=-@ dtbs Image modules
                             make modules_install INSTALL_MOD_PATH=_modules
                             tar -C _modules -cjvf modules.tar.bz2 .
                         '''
