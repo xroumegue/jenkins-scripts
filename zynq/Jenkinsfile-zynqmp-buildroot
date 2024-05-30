@@ -86,10 +86,16 @@ pipeline {
                               cp ${WORKSPACE}/zynq/buildroot-${DEFCONFIG} configs/${DEFCONFIG}
                             fi
                             cp ${WORKSPACE}/zynq/linux-xilinx_zynqmp_defconfig board/zynqmp/xilinx_zynqmp_defconfig
-                            make clean
-                            make "${DEFCONFIG}"
-                            make
-                            make sdk
+                            export PODMAN_USERNS=keep-id:uid=$(id -u),gid=$(id -g)
+                            export BR2_CCACHE_DIR=$(pwd)/.buildroot-ccache
+                            export BR2_DL_DIR=$(pwd)/dl
+                            rm -Rf ${BR2_CCACHE_DIR}
+                            mkdir -p ${BR2_CCACHE_DIR}
+                            ./utils/docker-run make clean
+                            ./utils/docker-run make "${DEFCONFIG}"
+                            sed -i -e 's:BR2_CCACHE_DIR=\\"\\$(HOME)/\\(.*\\)\\":BR2_CCACHE_DIR=\\"./\\1\\":' .config
+                            ./utils/docker-run make
+                            ./utils/docker-run make sdk
                         '''
                     }
                 }
