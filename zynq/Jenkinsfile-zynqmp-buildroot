@@ -88,7 +88,7 @@ pipeline {
                             cp ${WORKSPACE}/zynq/linux-xilinx_zynqmp_defconfig board/zynqmp/xilinx_zynqmp_defconfig
                             make clean
                             make "${DEFCONFIG}"
-                            make
+                            make -j$(nproc)
                             make sdk
                         '''
                     }
