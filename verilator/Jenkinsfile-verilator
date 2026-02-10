@@ -118,6 +118,7 @@ pipeline {
                                     ln -s share/verilator/include include
                                     for file in $(ls share/verilator/bin)
                                     do
+                                        rm -f bin/"${file}"
                                         ln -s ../share/verilator/bin/"${file}" bin/"${file}"
                                     done
 
