@@ -18,6 +18,11 @@ pipeline {
             defaultValue: 'v4.228',
             description: 'Verilator Version'
         )
+        string(
+            name: 'SYSTEMC_VERSION',
+            defaultValue: '2.3.4',
+            description: 'SystemC Version'
+        )
     }
 
     triggers{ pollSCM('H/15 * * * *') }
@@ -62,7 +67,7 @@ pipeline {
         stage('build') {
             steps {
                 script {
-                    def sc_versions = ['2.3.4']
+                    def sc_versions = ["${params.SYSTEMC_VERSION}"]
                     def std_cxx_versions = ['cpp14', 'cpp17', 'cpp20']
 
                     sh(script: 'rm -Rf work/archives; mkdir -p work/archives')
